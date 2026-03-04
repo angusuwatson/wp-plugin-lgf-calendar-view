@@ -3,7 +3,7 @@
  * Plugin Name: LGF Calendar View
  * Description: Displays Motopress Hotel Booking data in a LibreOffice Calc-style layout
  * Version: 1.0
- * Author: Your Name
+ * Author: Angus Watson, Quinn (mistral/codestral) & Kylie (stepfun/step-3.5-flash:free)
  */
 
 // Activation hook
