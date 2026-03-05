@@ -78,6 +78,36 @@
     background-color: #eaeaea;
 }
 
+/* Day-of-week row */
+.lgf-calendar-view .calendar-grid tr.dow-row th {
+    background-color: #f0f0f0;
+    font-weight: 500;
+    text-align: center;
+    border-bottom: 1px solid #ccc;
+}
+.lgf-calendar-view .calendar-grid tr.dow-row th.label {
+    background-color: #eaeaea;
+}
+
+/* Notes row */
+.lgf-calendar-view .calendar-grid tr.notes-row th {
+    background-color: #fff;
+    border-bottom: 2px solid #404040;
+    padding: 2px;
+}
+.lgf-calendar-view .calendar-grid tr.notes-row th.label {
+    background-color: #eaeaea;
+    border-right: 1px solid black;
+}
+.lgf-calendar-view .calendar-grid .note-input {
+    width: 100%;
+    border: 1px solid #ccc;
+    font-size: 10px;
+    padding: 2px;
+    box-sizing: border-box;
+    border-radius: 2px;
+}
+
 /* Sticky first column (labels) */
 .lgf-calendar-view .calendar-grid td.label {
     position: sticky;

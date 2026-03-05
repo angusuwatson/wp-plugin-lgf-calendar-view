@@ -15,6 +15,21 @@ $days = $calendar_data['days'];
                 <th><?php echo esc_html( $day ); ?></th>
             <?php endforeach; ?>
         </tr>
+        <tr class="dow-row">
+            <th class="label" style="position: sticky; left: 0; background:#eaeaea; border-right: 1px solid black;"></th>
+            <?php foreach ( $days as $day ) :
+                $date_str = sprintf( '%04d-%02d-%02d', $year, $month, $day );
+                $dow = date_i18n( 'l', strtotime( $date_str ) );
+            ?>
+                <th><?php echo esc_html( $dow ); ?></th>
+            <?php endforeach; ?>
+        </tr>
+        <tr class="notes-row">
+            <th class="label" style="position: sticky; left: 0; background:#eaeaea; border-right: 1px solid black;">Notes</th>
+            <?php foreach ( $days as $day ) : ?>
+                <th><input type="text" class="note-input" data-date="<?php echo esc_attr( sprintf( '%04d-%02d-%02d', $year, $month, $day ) ); ?>" value="" /></th>
+            <?php endforeach; ?>
+        </tr>
     </thead>
     <tbody>
         <?php if ( empty( $rooms ) ) : ?>
