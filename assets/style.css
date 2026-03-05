@@ -39,61 +39,45 @@
 
 /* Calendar grid scroll area */
 .lgf-calendar-view {
+    margin: 0; /* moved to container */
     overflow-x: auto;
 }
 
-/* Loading indicator */
-.lgf-calendar-view.loading {
-    position: relative;
-    min-height: 100px;
-}
-.lgf-calendar-view.loading::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 30px;
-    height: 30px;
-    margin: -15px 0 0 -15px;
-    border: 3px solid #f3f3f3;
-    border-top: 3px solid #0073aa;
-    border-radius: 50%;
-    animation: lgf-spin 1s linear infinite;
-    z-index: 100;
-}
-
-@keyframes lgf-spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
-.lgf-calendar-view .calendar-grid {
+.lgf-calendar-view table {
     border-collapse: collapse;
     width: 100%;
-    min-width: 800px;
+    min-width: 900px;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
     font-size: 13px;
 }
 
-.lgf-calendar-view .calendar-grid th,
-.lgf-calendar-view .calendar-grid td {
+.lgf-calendar-view th,
+.lgf-calendar-view td {
     border: 1px solid #ccc;
     padding: 6px 8px;
     text-align: center;
-    min-width: 40px;
-    height: 32px;
+    min-width: 36px;
+    height: 28px;
     vertical-align: middle;
 }
 
-.lgf-calendar-view .calendar-grid th {
+.lgf-calendar-view th {
     background-color: #eaeaea;
     font-weight: 600;
     position: sticky;
-    top: 40px; /* below nav */
+    top: 0;
     z-index: 2;
 }
 
-/* Room column */
+.lgf-calendar-view tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+.lgf-calendar-view tr:hover {
+    background-color: #f0f0f0;
+}
+
+/* Room column sticky and highlighted */
 .lgf-calendar-view .room-header,
 .lgf-calendar-view .room-name {
     text-align: left;
@@ -105,50 +89,20 @@
     border-right: 2px solid #999;
 }
 
-/* Day cell states */
-.lgf-calendar-view .calendar-grid .day-cell.free {
-    background-color: #f0fff0; /* light green */
-}
-
-.lgf-calendar-view .calendar-grid .day-cell.occupied {
+.lgf-calendar-view .has-booking {
     background-color: #fffacd; /* light yellow */
 }
 
-.lgf-calendar-view .calendar-grid .day-cell.checkin {
-    border-left: 2px solid #9f9; /* green left edge */
+.lgf-calendar-view .available {
+    background-color: #f0fff0; /* light green */
 }
 
-.lgf-calendar-view .calendar-grid .day-cell.checkout {
-    border-right: 2px solid #f99; /* pink right edge */
-}
-
-.lgf-calendar-view .calendar-grid .day-cell.occupied.checkin {
-    border-left: 2px solid #9f9;
-}
-
-.lgf-calendar-view .calendar-grid .day-cell.occupied.checkout {
-    border-right: 2px solid #f99;
-}
-
-/* Status badge */
-.status-badge {
+.lgf-calendar-view .booking-status {
     font-weight: bold;
     font-size: 11px;
-    padding: 2px 6px;
-    border-radius: 3px;
-    color: #fff;
-    display: inline-block;
-    margin-bottom: 2px;
 }
 
-/* Status-specific colors */
-.lgf-calendar-view .calendar-grid .day-cell .status-confirmed { background-color: #28a745; }
-.lgf-calendar-view .calendar-grid .day-cell .status-pending { background-color: #ffc107; color: #000; }
-.lgf-calendar-view .calendar-grid .day-cell .status-cancelled { background-color: #dc3545; }
-.lgf-calendar-view .calendar-grid .day-cell .status-processing,
-.lgf-calendar-view .calendar-grid .day-cell .status-incomplete { background-color: #17a2b8; }
-
-.guest-name {
+.lgf-calendar-view .guest-name {
     font-size: 10px;
     color: #555;
     white-space: nowrap;
@@ -157,34 +111,18 @@
     max-width: 80px;
 }
 
-/* Weekend highlighting */
-.lgf-calendar-view .calendar-grid th.weekend {
-    background-color: #f9d5e5; /* light pink for weekend column headers */
-}
-
-.lgf-calendar-view .calendar-grid tr:nth-child(even) {
-    background-color: #f9f9f9;
-}
-
-.lgf-calendar-view .calendar-grid tr:hover {
-    background-color: #f1f1f1;
-}
-
 /* Responsive */
 @media (max-width: 768px) {
-    .lgf-calendar-container {
+    .lgf-calendar-view {
         font-size: 12px;
     }
-    .lgf-calendar-view .calendar-grid th,
-    .lgf-calendar-view .calendar-grid td {
-        padding: 3px 5px;
+    .lgf-calendar-view th,
+    .lgf-calendar-view td {
+        padding: 4px 6px;
         min-width: 30px;
     }
     .lgf-calendar-view .room-header,
     .lgf-calendar-view .room-name {
-        min-width: 80px;
-    }
-    .guest-name {
-        display: none;
+        min-width: 100px;
     }
 }
