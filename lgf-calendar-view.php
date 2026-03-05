@@ -292,8 +292,8 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
         'days' => range(1, $days_in_month),
     ];
 
-    // DEBUG: write counts to file
-    file_put_contents( '/tmp/lgf_calendar_debug.log', 'Rooms=' . count( $rooms ) . ', Bookings=' . count( $bookings ) . "\n", FILE_APPEND );
+    // DEBUG: log counts to PHP error log (goes to Docker stderr)
+    error_log( 'LGF Calendar DEBUG: Rooms=' . count( $rooms ) . ', Bookings=' . count( $bookings ) );
 
     return $result;
 }
