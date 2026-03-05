@@ -72,13 +72,23 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
     $first_day_str = $first_day->format( 'Y-m-d' );
     $last_day_str  = $last_day->format( 'Y-m-d' );
 
-    // Fetch all rooms using Motopress facade
-    $rooms = mphb_rooms_facade()->getPosts( [
-        'post_status' => 'publish',
+    // Fetch all rooms (Motopress CPT: mphb_room)
+    $rooms = get_posts( [
+        'post_type'      => 'mphb_room',
+        'post_status'    => 'publish',
         'posts_per_page' => -1,
-        'orderby' => 'title',
-        'order' => 'ASC',
+        'orderby'        => 'title',
+        'order'          => 'ASC',
+        'fields'         => 'ids', // we only need IDs and titles; we'll get title via get_the_title()
     ] );
+
+    // Convert to objects with id and title for consistency
+    $rooms = array_map( function( $room_id ) {
+        return (object) [
+            'id' => $room_id,
+            'title' => get_the_title( $room_id ),
+        ];
+    }, $rooms );
 
     if ( empty( $rooms ) ) {
         $result = [
