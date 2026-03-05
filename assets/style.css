@@ -91,7 +91,7 @@
 
 /* Notes row */
 .lgf-calendar-view .calendar-grid tr.notes-row th {
-    background-color: #fff;
+    background-color: #eaeaea; /* blend with header */
     border-bottom: 2px solid #404040;
     padding: 2px;
 }
@@ -127,15 +127,17 @@
     color: #fff;
 }
 
-/* Tarif row: top thin black, bottom thick black */
+/* Tarif row: top thin black, bottom thick black, right-aligned */
 .lgf-calendar-view .calendar-grid tr.tarif-row td {
     border-top: 1px solid black;
     border-bottom: 3px solid black;
+    text-align: right;
 }
 
-/* Commission row white background */
+/* Commission row white background, right-aligned */
 .lgf-calendar-view .calendar-grid tr.commission-row td {
     background-color: #fff !important;
+    text-align: right;
 }
 
 /* Responsive */

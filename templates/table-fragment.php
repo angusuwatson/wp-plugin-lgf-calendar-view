@@ -79,16 +79,26 @@ $days = $calendar_data['days'];
                     [
                         'label' => 'Tarif',
                         'class' => 'tarif-row',
-                        'label_style' => "background:$color; border-right: 1px solid black;",
-                        'cell_style' => "background:$color;",
-                        'value_fn' => function($b) { return $b->tarif !== '' ? number_format($b->tarif, 2) : ''; }
+                        'label_style' => "background:$color; border-right: 1px solid black; text-align: right;",
+                        'cell_style' => "background:$color; text-align: right;",
+                        'value_fn' => function($b) { 
+                            if ( $b->tarif !== '' && $b->tarif !== null ) {
+                                return number_format( $b->tarif, 2, ',', '' ) . '€';
+                            }
+                            return '';
+                        }
                     ],
                     [
                         'label' => 'Commission',
                         'class' => 'commission-row',
-                        'label_style' => 'background:#fff; border-right: 1px solid black;',
-                        'cell_style' => 'background:#fff;',
-                        'value_fn' => function($b) { return $b->commission !== '' ? number_format($b->commission, 2) : ''; }
+                        'label_style' => 'background:#fff; border-right: 1px solid black; text-align: right;',
+                        'cell_style' => 'background:#fff; text-align: right;',
+                        'value_fn' => function($b) { 
+                            if ( $b->commission !== '' && $b->commission !== null ) {
+                                return number_format( $b->commission, 2, ',', '' ) . '€';
+                            }
+                            return '';
+                        }
                     ],
                 ];
                 foreach ($rows as $row):
