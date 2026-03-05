@@ -2,7 +2,7 @@
 /**
  * Plugin Name: LGF Calendar View
  * Description: Displays Motopress Hotel Booking data in a LibreOffice Calc-style layout
- * Version: 1.1
+ * Version: 1.2
  * Author: Angus Watson, Quinn (mistral/codestral) & Kylie (stepfun/step-3.5-flash:free)
  * Text Domain: lgf-calendar-view
  */
@@ -35,80 +35,220 @@ function lgf_calendar_view_enqueue_assets() {
 }
 
 /**
- * Get calendar data for a month/year.
+ * Get cached calendar data or build and cache it.
  *
- * Returns array with:
- * - rooms: array of room objects (id, title)
- * - bookings_by_room_date: [room_id][date_str] = booking object
- * - month, year, days_in_month, days (1-indexed array)
+ * @param int $month 1-12
+ * @param int $year
+ * @return array Calendar data structure
  */
 function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
     if ( ! class_exists( 'MPHB' ) ) {
-        return [ 'rooms' => [], 'bookings_by_room_date' => [], 'month' => $month, 'year' => $year, 'days_in_month' => 0, 'days' => [] ];
+        return [
+            'rooms' => [],
+            'matrix' => [],
+            'month' => $month,
+            'year' => $year,
+            'days_in_month' => 0,
+            'days' => [],
+        ];
     }
 
     $month = $month ?: date( 'n' );
     $year  = $year  ?: date( 'Y' );
 
-    global $wpdb;
-    $mphb_rooms_table    = $wpdb->prefix . 'mphb_rooms';
-    $mphb_bookings_table = $wpdb->prefix . 'mphb_bookings';
-
-    // Get all rooms (ordered by title)
-    $rooms = $wpdb->get_results( "SELECT id, title FROM $mphb_rooms_table ORDER BY title" );
-
-    // First and last day of the month
-    $first_day_obj = DateTime::createFromFormat( '!Y-n-j', "$year-$month-1" );
-    if ( ! $first_day_obj ) {
-        $first_day_obj = new DateTime( "$year-$month-01" );
+    // Build transient key: include all room types? We'll use all rooms.
+    $transient_key = 'lgf_calendar_' . $year . '_' . $month;
+    $cached = get_transient( $transient_key );
+    if ( false !== $cached ) {
+        return $cached;
     }
-    $first_day_str = $first_day_obj->format( 'Y-m-d' );
-    $days_in_month = intval( $first_day_obj->format( 't' ) );
-    $last_day_str = $first_day_obj->format( 'Y-m-t' );
 
-    // Get bookings that overlap this month
+    $first_day = new DateTime( sprintf( '%04d-%02d-01', $year, $month ) );
+    $days_in_month = intval( $first_day->format( 't' ) );
+    $last_day = clone $first_day;
+    $last_day->setDate( $year, $month, $days_in_month )->setTime( 23, 59, 59 );
+
+    $first_day_str = $first_day->format( 'Y-m-d' );
+    $last_day_str  = $last_day->format( 'Y-m-d' );
+
+    // Fetch all rooms (active)
+    $rooms = MPHB()->getRoomPersistence()->getPosts( [
+        'post_status' => 'publish',
+        'posts_per_page' => -1,
+        'orderby' => 'title',
+        'order' => 'ASC',
+    ] );
+
+    if ( empty( $rooms ) ) {
+        $result = [
+            'rooms' => [],
+            'matrix' => [],
+            'month' => $month,
+            'year' => $year,
+            'days_in_month' => $days_in_month,
+            'days' => range(1, $days_in_month),
+        ];
+        set_transient( $transient_key, $result, 30 * MINUTE_IN_SECONDS );
+        return $result;
+    }
+
+    // Fetch bookings that overlap the month (same as Motopress: check_in <= last_day AND check_out >= first_day)
+    global $wpdb;
+    $mphb_bookings_table = $wpdb->prefix . 'mphb_bookings';
+    $mphb_reserved_room_table = $wpdb->prefix . 'mphb_reserved_room';
+    $mphb_postmeta = $wpdb->prefix . 'postmeta';
+
+    // Get bookings with status that block rooms
+    $booking_statuses = [ 'confirmed', 'pending', 'pending-user', 'pending-payment' ]; // from Motopress
+
     $bookings = $wpdb->get_results(
         $wpdb->prepare(
             "
-            SELECT b.*, r.title as room_name
-            FROM $mphb_bookings_table b
-            LEFT JOIN $mphb_rooms_table r ON b.room_id = r.id
-            WHERE b.check_in_date <= %s
-              AND b.check_out_date >= %s
+            SELECT 
+                b.ID as booking_id,
+                b.post_status as booking_status,
+                b.post_date as booking_date,
+                check_in.meta_value as check_in_date,
+                check_out.meta_value as check_out_date,
+                rr.ID as reserved_room_id,
+                room_id.meta_value as room_id
+            FROM {$mphb_bookings_table} b
+            INNER JOIN {$mphb_reserved_room_table} rr ON rr.post_parent = b.ID
+            INNER JOIN {$mphb_postmeta} room_id ON room_id.post_id = rr.ID AND room_id.meta_key = '_mphb_room_id'
+            INNER JOIN {$mphb_postmeta} check_in ON check_in.post_id = b.ID AND check_in.meta_key = 'mphb_check_in_date'
+            INNER JOIN {$mphb_postmeta} check_out ON check_out.post_id = b.ID AND check_out.meta_key = 'mphb_check_out_date'
+            WHERE b.post_status IN ('" . implode( "','", array_map( 'esc_sql', $booking_statuses ) ) . "')
+              AND check_in.meta_value <= %s
+              AND check_out.meta_value >= %s
             ",
             $last_day_str,
             $first_day_str
         )
     );
 
-    // Build map: room_id => date_str => booking
-    $bookings_by_room_date = [];
-    foreach ( $bookings as $booking ) {
-        $room_id = $booking->room_id;
-        if ( ! isset( $bookings_by_room_date[ $room_id ] ) ) {
-            $bookings_by_room_date[ $room_id ] = [];
+    // Build matrix: room_id => date_str => ['booking' => object, 'is_checkin' => bool, 'is_checkout' => bool]
+    $matrix = [];
+    foreach ( $rooms as $room ) {
+        $matrix[ $room->ID ] = [];
+    }
+
+    // Get guest names from booking posts (meta or post fields)
+    // Motopress stores customer name in meta: _mphb_first_name, _mphb_last_name, or maybe in billing details
+    foreach ( $bookings as $b ) {
+        $room_id = intval( $b->room_id );
+        if ( ! isset( $matrix[ $room_id ] ) ) {
+            // Room might be deleted/inactive; skip
+            continue;
         }
 
-        $check_in = new DateTime( $booking->check_in_date );
-        $check_out = new DateTime( $booking->check_out_date );
+        $check_in = new DateTime( $b->check_in_date );
+        $check_out = new DateTime( $b->check_out_date );
+
+        // Iterate dates from check_in (inclusive) to check_out (exclusive)
         for ( $date = clone $check_in; $date < $check_out; $date->modify( '+1 day' ) ) {
             $date_str = $date->format( 'Y-m-d' );
-            if ( $date_str >= $first_day_str && $date_str <= $last_day_str ) {
-                $bookings_by_room_date[ $room_id ][ $date_str ] = $booking;
+            if ( $date_str < $first_day_str || $date_str > $last_day_str ) {
+                continue;
+            }
+            if ( ! isset( $matrix[ $room_id ][ $date_str ] ) ) {
+                $matrix[ $room_id ][ $date_str ] = [
+                    'booking' => null,
+                    'is_checkin' => false,
+                    'is_checkout' => false,
+                ];
+            }
+            $entry = &$matrix[ $room_id ][ $date_str ];
+            $entry['booking'] = (object) [
+                'id' => $b->booking_id,
+                'status' => $b->booking_status,
+                'check_in' => $b->check_in_date,
+                'check_out' => $b->check_out_date,
+                'room_id' => $room_id,
+                // We'll fetch guest name later in bulk
+            ];
+            // Check-in day is the first day of stay
+            if ( $date_str === $b->check_in_date ) {
+                $entry['is_checkin'] = true;
+            }
+            // Check-out day is the last day of stay (but not included in stay days; we mark it as check-out)
+            // Note: check_out date itself is NOT a stay night; it's the departure day. In our loop, we go up to but not including check_out, so check_out day will not be visited.
+            // So we need to also mark the check_out day as checkout if it's within the month, even though no stay that night.
+            // We'll handle that separately below.
+        }
+
+        // Mark the check_out day as a checkout event if it's within the month
+        $check_out_date_str = $check_out->format( 'Y-m-d' );
+        if ( $check_out_date_str >= $first_day_str && $check_out_date_str <= $last_day_str ) {
+            if ( ! isset( $matrix[ $room_id ][ $check_out_date_str ] ) ) {
+                $matrix[ $room_id ][ $check_out_date_str ] = [
+                    'booking' => null,
+                    'is_checkin' => false,
+                    'is_checkout' => false,
+                ];
+            }
+            $matrix[ $room_id ][ $check_out_date_str ]['is_checkout'] = true;
+            // Also ensure the booking object is there so we can identify which booking
+            if ( is_null( $matrix[ $room_id ][ $check_out_date_str ]['booking'] ) ) {
+                $matrix[ $room_id ][ $check_out_date_str ]['booking'] = (object) [
+                    'id' => $b->booking_id,
+                    'status' => $b->booking_status,
+                    'check_in' => $b->check_in_date,
+                    'check_out' => $b->check_out_date,
+                    'room_id' => $room_id,
+                ];
             }
         }
     }
 
-    $days = range( 1, $days_in_month );
+    // Fetch guest names for all unique booking IDs
+    $booking_ids = array_unique( array_column( $bookings, 'booking_id' ) );
+    $guest_names = [];
+    if ( ! empty( $booking_ids ) ) {
+        // Get first name and last name meta
+        $placeholders = implode( ',', array_fill( 0, count( $booking_ids ), '%d' ) );
+        $meta_rows = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT post_id, meta_key, meta_value FROM {$mphb_postmeta} WHERE post_id IN ($placeholders) AND meta_key IN ('_mphb_first_name', '_mphb_last_name')",
+                $booking_ids
+            )
+        );
+        foreach ( $meta_rows as $row ) {
+            $bid = $row->post_id;
+            if ( ! isset( $guest_names[ $bid ] ) ) {
+                $guest_names[ $bid ] = new stdClass();
+            }
+            if ( $row->meta_key == '_mphb_first_name' ) {
+                $guest_names[ $bid ]->first_name = $row->meta_value;
+            } elseif ( $row->meta_key == '_mphb_last_name' ) {
+                $guest_names[ $bid ]->last_name = $row->meta_value;
+            }
+        }
+        // Attach guest_name to booking objects in matrix
+        foreach ( $matrix as &$room_matrix ) {
+            foreach ( $room_matrix as &$entry ) {
+                if ( $entry['booking'] && isset( $guest_names[ $entry['booking']->id ] ) ) {
+                    $guest = $guest_names[ $entry['booking']->id ];
+                    $entry['booking']->guest_name = trim( ($guest->first_name ?? '') . ' ' . ($guest->last_name ?? '') );
+                } elseif ( $entry['booking'] ) {
+                    $entry['booking']->guest_name = '';
+                }
+            }
+        }
+    }
 
-    return [
-        'rooms'                => $rooms,
-        'bookings_by_room_date' => $bookings_by_room_date,
-        'month'                => $month,
-        'year'                 => $year,
-        'days_in_month'        => $days_in_month,
-        'days'                 => $days,
+    $result = [
+        'rooms' => $rooms,
+        'matrix' => $matrix,
+        'month' => $month,
+        'year' => $year,
+        'days_in_month' => $days_in_month,
+        'days' => range(1, $days_in_month),
     ];
+
+    // Cache for 30 minutes
+    set_transient( $transient_key, $result, 30 * MINUTE_IN_SECONDS );
+
+    return $result;
 }
 
 // Shortcode to display the calendar view
