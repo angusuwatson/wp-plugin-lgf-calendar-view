@@ -338,7 +338,11 @@ function lgf_calendar_rest_table( WP_REST_Request $request ) {
     $month = intval( $request->get_param( 'month' ) );
     $year  = intval( $request->get_param( 'year' ) );
 
+    error_log( "LGF REST: requested month=$month year=$year" );
+
     $calendar_data = lgf_calendar_view_get_calendar_data( $month, $year );
+
+    error_log( 'LGF REST: rooms count=' . count( $calendar_data['rooms'] ) . ', matrix rooms=' . count( $calendar_data['matrix'] ) );
 
     // Render only the table part (include a minimal template that outputs just the table)
     $template = plugin_dir_path( __FILE__ ) . 'templates/table-fragment.php';
