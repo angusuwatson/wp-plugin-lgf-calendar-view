@@ -103,14 +103,36 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
         return $result;
     }
 
-    // We'll query bookings directly with the correct overlap condition
+    // Query bookings and their assigned rooms using Motopress CPT structure
     global $wpdb;
-    $mphb_bookings_table = $wpdb->prefix . 'mphb_bookings';
-    $mphb_reserved_room_table = $wpdb->prefix . 'mphb_reserved_room';
-    $mphb_postmeta = $wpdb->prefix . 'postmeta';
 
     // Booking statuses that block rooms (from Motopress research)
     $locked_statuses = [ 'confirmed', 'pending', 'pending-user', 'pending-payment' ];
+
+    $bookings = $wpdb->get_results(
+        $wpdb->prepare(
+            "
+            SELECT 
+                b.ID as booking_id,
+                b.post_status as booking_status,
+                check_in.meta_value as check_in_date,
+                check_out.meta_value as check_out_date,
+                rr.ID as reserved_room_id,
+                room_id_meta.meta_value as room_id
+            FROM {$wpdb->posts} AS b
+            INNER JOIN {$wpdb->posts} AS rr ON rr.post_parent = b.ID AND rr.post_type = 'mphb_reserved_room'
+            INNER JOIN {$wpdb->postmeta} AS room_id_meta ON room_id_meta.post_id = rr.ID AND room_id_meta.meta_key = '_mphb_room_id'
+            INNER JOIN {$wpdb->postmeta} AS check_in ON check_in.post_id = b.ID AND check_in.meta_key = 'mphb_check_in_date'
+            INNER JOIN {$wpdb->postmeta} AS check_out ON check_out.post_id = b.ID AND check_out.meta_key = 'mphb_check_out_date'
+            WHERE b.post_type = 'mphb_booking'
+              AND b.post_status IN ('" . implode( "','", array_map( 'esc_sql', $locked_statuses ) ) . "')
+              AND check_in.meta_value <= %s
+              AND check_out.meta_value >= %s
+            ",
+            $last_day_str,
+            $first_day_str
+        )
+    );
 
     $bookings = $wpdb->get_results(
         $wpdb->prepare(
