@@ -92,11 +92,19 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
 
     $room_ids = get_posts( $args );
 
+    // Determine if we're filtering by language (Polylang/WPML)
+    $isLanguageFiltered = ! empty( $args['lang'] );
+
     // Convert to objects with id and title for consistency
-    $rooms = array_map( function( $room_id ) {
+    $rooms = array_map( function( $room_id ) use ( $isLanguageFiltered ) {
+        $title = get_the_title( $room_id );
+        // If NOT language-filtered (i.e., duplicate rooms present), strip trailing " 1" from duplicate room titles
+        if ( ! $isLanguageFiltered && preg_match( '/^(.*?)(?:\s+1)$/', $title, $matches ) ) {
+            $title = $matches[1];
+        }
         return (object) [
             'id' => $room_id,
-            'title' => get_the_title( $room_id ),
+            'title' => $title,
         ];
     }, $room_ids );
 
