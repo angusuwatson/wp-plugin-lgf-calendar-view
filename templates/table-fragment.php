@@ -6,17 +6,12 @@ $month                = $calendar_data['month'];
 $year                 = $calendar_data['year'];
 $days_in_month        = $calendar_data['days_in_month'];
 $days                 = $calendar_data['days'];
-
-// Helper: get entry for room and date
-$get_entry = function( $room_id, $date_str ) use ( $matrix ) {
-    return $matrix[ $room_id ][ $date_str ] ?? null;
-};
 ?>
 
 <table class="wp-list-table widefat fixed striped calendar-grid">
     <thead>
         <tr>
-            <th class="room-header"><?php esc_html_e( 'Room', 'lgf-calendar-view' ); ?></th>
+            <th class="label-header">Field</th>
             <?php foreach ( $days as $day ) :
                 $date_str = sprintf( '%04d-%02d-%02d', $year, $month, $day );
                 $day_of_week = date_i18n( 'D', strtotime( $date_str ) );
@@ -36,37 +31,76 @@ $get_entry = function( $room_id, $date_str ) use ( $matrix ) {
         <?php else : ?>
             <?php foreach ( $rooms as $room ) :
                 $room_id = $room->id;
+                $color = $room->color ?? '#ccc';
+                $rows = [
+                    [
+                        'label' => $room->title,
+                        'class' => 'room-name-row',
+                        'label_style' => 'background:#404040; color:#fff;',
+                        'cell_style' => "background:$color;",
+                        'value' => null
+                    ],
+                    [
+                        'label' => 'Guest',
+                        'class' => 'guest-row',
+                        'label_style' => '',
+                        'cell_style' => "background:$color;",
+                        'value_fn' => function($b) { return $b->guest_name ?? ''; }
+                    ],
+                    [
+                        'label' => 'Platform',
+                        'class' => 'platform-row',
+                        'label_style' => '',
+                        'cell_style' => "background:$color;",
+                        'value_fn' => function($b) { return $b->platform_label ?? ''; }
+                    ],
+                    [
+                        'label' => 'Occupancy',
+                        'class' => 'occupancy-row',
+                        'label_style' => '',
+                        'cell_style' => "background:$color;",
+                        'value_fn' => function($b) { return $b->occupancy_str ?? ''; }
+                    ],
+                    [
+                        'label' => 'Dinner',
+                        'class' => 'dinner-row',
+                        'label_style' => '',
+                        'cell_style' => "background:$color;",
+                        'value_fn' => function($b) { return $b->dinner ?? ''; }
+                    ],
+                    [
+                        'label' => 'Tarif',
+                        'class' => 'tarif-row',
+                        'label_style' => '',
+                        'cell_style' => "background:$color;",
+                        'value_fn' => function($b) { return $b->tarif !== '' ? number_format($b->tarif, 2) : ''; }
+                    ],
+                    [
+                        'label' => 'Commission',
+                        'class' => 'commission-row',
+                        'label_style' => '',
+                        'cell_style' => 'background:#fff;',
+                        'value_fn' => function($b) { return $b->commission !== '' ? number_format($b->commission, 2) : ''; }
+                    ],
+                ];
+                foreach ($rows as $row):
             ?>
-                <tr>
-                    <td class="room-name"><?php echo esc_html( $room->title ); ?></td>
+                <tr class="<?php echo $row['class']; ?>">
+                    <td class="label" style="position: sticky; left: 0; <?php echo $row['label_style']; ?>"><?php echo esc_html($row['label']); ?></td>
                     <?php foreach ( $days as $day ) :
                         $date_str = sprintf( '%04d-%02d-%02d', $year, $month, $day );
-                        $entry = $get_entry( $room_id, $date_str );
-                        $has_booking = $entry && isset( $entry['booking'] ) && $entry['booking'];
-                        $is_checkout = $entry && isset( $entry['is_checkout'] ) && $entry['is_checkout'];
-                        $is_checkin = $entry && isset( $entry['is_checkin'] ) && $entry['is_checkin'];
-                        $cell_class = 'day-cell';
-                        if ($has_booking) {
-                            $cell_class .= ' occupied';
-                            if ($is_checkin) $cell_class .= ' checkin';
-                            if ($is_checkout) $cell_class .= ' checkout';
-                        } else {
-                            $cell_class .= ' free';
+                        $entry = $matrix[ $room_id ][ $date_str ] ?? null;
+                        $booking = $entry && isset( $entry['booking'] ) && $entry['booking'] ? $entry['booking'] : null;
+                        $value = '';
+                        if ($booking && isset($row['value_fn'])) {
+                            $value = $row['value_fn']($booking);
                         }
                     ?>
-                        <td class="<?php echo $cell_class; ?>">
-                            <?php if ( $has_booking ) : ?>
-                                <div class="status-badge status-<?php echo esc_attr( $entry['booking']->status ); ?>">
-                                    <?php echo esc_html( $entry['booking']->status ); ?>
-                                </div>
-                                <?php if ( ! empty( $entry['booking']->guest_name ) ) : ?>
-                                    <div class="guest-name"><?php echo esc_html( $entry['booking']->guest_name ); ?></div>
-                                <?php endif; ?>
-                            <?php endif; ?>
+                        <td style="<?php echo esc_attr($row['cell_style']); ?>">
+                            <?php echo esc_html( $value ); ?>
                         </td>
                     <?php endforeach; ?>
                 </tr>
-            <?php endforeach; ?>
-        <?php endif; ?>
-    </tbody>
+            <?php endforeach; endforeach; ?>
+        </tbody>
 </table>

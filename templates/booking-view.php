@@ -32,7 +32,7 @@ $today_year = date('Y');
         <table class="wp-list-table widefat fixed striped calendar-grid">
             <thead>
                 <tr>
-                    <th class="room-header"><?php esc_html_e( 'Room', 'lgf-calendar-view' ); ?></th>
+                    <th class="label-header">Field</th>
                     <?php foreach ( $days as $day ) :
                         $date_str = sprintf( '%04d-%02d-%02d', $year, $month, $day );
                         $day_of_week = date_i18n( 'D', strtotime( $date_str ) );
@@ -52,30 +52,78 @@ $today_year = date('Y');
                 <?php else : ?>
                     <?php foreach ( $rooms as $room ) :
                         $room_id = $room->id;
-                        $row_style = 'style="background-color:' . esc_attr( $room->color ?? '#ccc' ) . '"';
+                        $color = $room->color ?? '#ccc';
+                        // Define row specifications
+                        $rows = [
+                            [
+                                'label' => $room->title,
+                                'class' => 'room-name-row',
+                                'label_style' => 'background:#404040; color:#fff;',
+                                'cell_style' => "background:$color;",
+                                'value' => null // empty
+                            ],
+                            [
+                                'label' => 'Guest',
+                                'class' => 'guest-row',
+                                'label_style' => '',
+                                'cell_style' => "background:$color;",
+                                'value_fn' => function($b) { return $b->guest_name ?? ''; }
+                            ],
+                            [
+                                'label' => 'Platform',
+                                'class' => 'platform-row',
+                                'label_style' => '',
+                                'cell_style' => "background:$color;",
+                                'value_fn' => function($b) { return $b->platform_label ?? ''; }
+                            ],
+                            [
+                                'label' => 'Occupancy',
+                                'class' => 'occupancy-row',
+                                'label_style' => '',
+                                'cell_style' => "background:$color;",
+                                'value_fn' => function($b) { return $b->occupancy_str ?? ''; }
+                            ],
+                            [
+                                'label' => 'Dinner',
+                                'class' => 'dinner-row',
+                                'label_style' => '',
+                                'cell_style' => "background:$color;",
+                                'value_fn' => function($b) { return $b->dinner ?? ''; }
+                            ],
+                            [
+                                'label' => 'Tarif',
+                                'class' => 'tarif-row',
+                                'label_style' => '',
+                                'cell_style' => "background:$color;",
+                                'value_fn' => function($b) { return $b->tarif !== '' ? number_format($b->tarif, 2) : ''; }
+                            ],
+                            [
+                                'label' => 'Commission',
+                                'class' => 'commission-row',
+                                'label_style' => '',
+                                'cell_style' => 'background:#fff;',
+                                'value_fn' => function($b) { return $b->commission !== '' ? number_format($b->commission, 2) : ''; }
+                            ],
+                        ];
+                        foreach ($rows as $row):
                     ?>
-                        <tr <?php echo $row_style; ?>>
-                            <td class="room-name" style="background-color: #404040; color: #fff;"><?php echo esc_html( $room->title ); ?></td>
+                        <tr class="<?php echo $row['class']; ?>">
+                            <td class="label" style="position: sticky; left: 0; <?php echo $row['label_style']; ?>"><?php echo esc_html($row['label']); ?></td>
                             <?php foreach ( $days as $day ) :
                                 $date_str = sprintf( '%04d-%02d-%02d', $year, $month, $day );
                                 $entry = $matrix[ $room_id ][ $date_str ] ?? null;
                                 $booking = $entry && isset( $entry['booking'] ) && $entry['booking'] ? $entry['booking'] : null;
+                                $value = '';
+                                if ($booking && isset($row['value_fn'])) {
+                                    $value = $row['value_fn']($booking);
+                                }
                             ?>
-                                <td class="day-cell">
-                                    <?php if ( $booking ) : ?>
-                                        <div class="line guest"><?php echo esc_html( $booking->guest_name ?? '' ); ?></div>
-                                        <div class="line platform"><?php echo esc_html( $booking->platform_label ?? '' ); ?></div>
-                                        <div class="line occupancy"><?php echo esc_html( $booking->occupancy_str ?? '' ); ?></div>
-                                        <div class="line dinner"><?php echo esc_html( $booking->dinner ?? '' ); ?></div>
-                                        <div class="line tarif"><?php echo esc_html( $booking->tarif ?? '' ); ?></div>
-                                        <div class="line commission"><?php echo esc_html( $booking->commission ?? '' ); ?></div>
-                                    <?php else : ?>
-                                        <div class="line free">&nbsp;</div>
-                                    <?php endif; ?>
+                                <td style="<?php echo esc_attr($row['cell_style']); ?>">
+                                    <?php echo esc_html( $value ); ?>
                                 </td>
                             <?php endforeach; ?>
                         </tr>
-                    <?php endforeach; ?>
+                    <?php endforeach; endforeach; ?>
                 <?php endif; ?>
             </tbody>
         </table>

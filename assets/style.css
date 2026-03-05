@@ -45,7 +45,7 @@
 .lgf-calendar-view .calendar-grid {
     border-collapse: collapse;
     width: 100%;
-    min-width: 800px;
+    min-width: calc(100px * 15); /* adjust based on days */
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
     font-size: 12px;
     table-layout: fixed;
@@ -55,9 +55,12 @@
 .lgf-calendar-view .calendar-grid td {
     border: 1px solid #ccc;
     padding: 4px 6px;
-    min-width: 60px;
+    width: 100px;
     vertical-align: top;
-    height: auto;
+    height: 24px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .lgf-calendar-view .calendar-grid th {
@@ -68,34 +71,31 @@
     z-index: 2;
 }
 
-/* Room column sticky and highlighted */
-.lgf-calendar-view .calendar-grid .room-header,
-.lgf-calendar-view .calendar-grid .room-name {
-    text-align: left;
-    background-color: #404040 !important;
-    color: #fff;
+/* Sticky first column (labels) */
+.lgf-calendar-view .calendar-grid td.label {
     position: sticky;
     left: 0;
-    z-index: 3;
-    min-width: 120px;
-    border-right: 2px solid #999;
+    z-index: 2;
+    background-color: #f0f0f0; /* default label background */
+    font-weight: 500;
 }
 
-/* Day cells: lines */
-.lgf-calendar-view .calendar-grid .day-cell .line {
-    margin-bottom: 2px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+/* Room name row label override */
+.lgf-calendar-view .calendar-grid tr.room-name-row td.label {
+    background-color: #404040;
+    color: #fff;
 }
-.lgf-calendar-view .calendar-grid .day-cell .line:last-child {
-    margin-bottom: 0;
+
+/* Row colors: rows 2-6 have room color on day cells; commission row white */
+.lgf-calendar-view .calendar-grid tr.guest-row td,
+.lgf-calendar-view .calendar-grid tr.platform-row td,
+.lgf-calendar-view .calendar-grid tr.occupancy-row td,
+.lgf-calendar-view .calendar-grid tr.dinner-row td,
+.lgf-calendar-view .calendar-grid tr.tarif-row td {
+    /* room color applied inline per row */
 }
-.lgf-calendar-view .calendar-grid .day-cell .free {
-    color: transparent;
-}
-.lgf-calendar-view .calendar-grid .day-cell .free::before {
-    content: "\00a0";
+.lgf-calendar-view .calendar-grid tr.commission-row td {
+    background-color: #fff !important;
 }
 
 /* Weekend highlighting */
@@ -103,18 +103,11 @@
     background-color: #f9d5e5;
 }
 
-/* Optional: responsive */
+/* Responsive */
 @media (max-width: 768px) {
-    .lgf-calendar-container {
-        font-size: 12px;
-    }
     .lgf-calendar-view .calendar-grid th,
     .lgf-calendar-view .calendar-grid td {
-        padding: 3px 5px;
-        min-width: 50px;
-    }
-    .lgf-calendar-view .calendar-grid .room-header,
-    .lgf-calendar-view .calendar-grid .room-name {
-        min-width: 100px;
+        padding: 3px 4px;
+        font-size: 11px;
     }
 }
