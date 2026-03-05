@@ -8,23 +8,27 @@
 .lgf-calendar-view table {
     border-collapse: collapse;
     width: 100%;
-    min-width: 600px;
+    min-width: 900px;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
-    font-size: 14px;
+    font-size: 13px;
 }
 
 .lgf-calendar-view th,
 .lgf-calendar-view td {
-    border: 1px solid #ddd;
-    padding: 8px 12px;
-    text-align: left;
+    border: 1px solid #ccc;
+    padding: 6px 8px;
+    text-align: center;
+    min-width: 36px;
+    height: 28px;
+    vertical-align: middle;
 }
 
 .lgf-calendar-view th {
-    background-color: #f2f2f2;
+    background-color: #eaeaea;
     font-weight: 600;
     position: sticky;
     top: 0;
+    z-index: 2;
 }
 
 .lgf-calendar-view tr:nth-child(even) {
@@ -32,14 +36,55 @@
 }
 
 .lgf-calendar-view tr:hover {
-    background-color: #f1f1f1;
+    background-color: #f0f0f0;
 }
 
-/* Calc-style grid lines */
-.lgf-calendar-view table {
-    border: 1px solid #ccc;
+/* Room column sticky and highlighted */
+.lgf-calendar-view .room-header,
+.lgf-calendar-view .room-name {
+    text-align: left;
+    background-color: #e8f4ff;
+    position: sticky;
+    left: 0;
+    z-index: 3;
+    min-width: 120px;
+    border-right: 2px solid #999;
 }
 
-.lgf-calendar-view th {
-    border-bottom: 2px solid #999;
+.lgf-calendar-view .has-booking {
+    background-color: #fffacd; /* light yellow */
+}
+
+.lgf-calendar-view .available {
+    background-color: #f0fff0; /* light green */
+}
+
+.lgf-calendar-view .booking-status {
+    font-weight: bold;
+    font-size: 11px;
+}
+
+.lgf-calendar-view .guest-name {
+    font-size: 10px;
+    color: #555;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 80px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .lgf-calendar-view {
+        font-size: 12px;
+    }
+    .lgf-calendar-view th,
+    .lgf-calendar-view td {
+        padding: 4px 6px;
+        min-width: 30px;
+    }
+    .lgf-calendar-view .room-header,
+    .lgf-calendar-view .room-name {
+        min-width: 100px;
+    }
 }
