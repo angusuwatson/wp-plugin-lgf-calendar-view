@@ -108,6 +108,9 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
         ];
     }, $room_ids );
 
+    // Debug: log how many rooms we fetched
+    error_log( 'LGF Calendar: Fetched ' . count( $rooms ) . ' rooms. IDs: ' . implode( ',', wp_list_pluck( $rooms, 'id' ) ) );
+
     if ( empty( $rooms ) ) {
         $result = [
             'rooms' => [],
@@ -151,6 +154,8 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
             $first_day_str
         )
     );
+
+    error_log( 'LGF Calendar: Bookings found: ' . count( $bookings ) );
 
     $bookings = $wpdb->get_results(
         $wpdb->prepare(
