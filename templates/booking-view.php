@@ -93,3 +93,13 @@ $today_year = date('Y');
         </table>
     </div>
 </div>
+
+<?php
+// DEBUG: dump matrix to verify content
+if ( current_user_can( 'manage_options' ) ) {
+    echo '<h3>DEBUG: Matrix sample</h3>';
+    echo '<pre>';
+    print_r( array_slice( $matrix, 0, 2, true ) );
+    echo '</pre>';
+}
+?>
