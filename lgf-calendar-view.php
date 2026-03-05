@@ -31,6 +31,13 @@ function lgf_calendar_view_enqueue_assets() {
     if ( has_shortcode( get_post()->post_content ?? '', 'lgf_calendar_view' ) ) {
         wp_register_style( 'lgf-calendar-view', plugin_dir_url( __FILE__ ) . 'assets/style.css' );
         wp_enqueue_style( 'lgf-calendar-view' );
+
+        wp_register_script( 'lgf-calendar-view', plugin_dir_url( __FILE__ ) . 'assets/calendar-navigation.js', [ 'jquery' ], '1.0', true );
+        wp_localize_script( 'lgf-calendar-view', 'lgfCalendar', [
+            'restUrl' => esc_url_raw( rest_url( 'lgf-calendar/v1/table' ) ),
+            'nonce'   => wp_create_nonce( 'wp_rest' ),
+        ] );
+        wp_enqueue_script( 'lgf-calendar-view' );
     }
 }
 
@@ -293,7 +300,54 @@ function lgf_calendar_view_shortcode( $atts ) {
         $template = plugin_dir_path( __FILE__ ) . 'templates/booking-view.php';
     }
 
+    // Full output (nav + table)
     ob_start();
     include $template;
     return ob_get_clean();
+}
+
+/**
+ * REST API endpoint to return just the table for AJAX navigation.
+ */
+add_action( 'rest_api_init', function() {
+    register_rest_route( 'lgf-calendar/v1', '/table', [
+        'methods'  => 'GET',
+        'callback' => 'lgf_calendar_rest_table',
+        'args'     => [
+            'month' => [
+                'validate_callback' => function( $param ) {
+                    return is_numeric( $param ) && $param >= 1 && $param <= 12;
+                },
+                'required' => true,
+            ],
+            'year' => [
+                'validate_callback' => function( $param ) {
+                    return is_numeric( $param ) && $param >= 2000 && $param <= 2100;
+                },
+                'required' => true,
+            ],
+        ],
+        'permission_callback' => function() {
+            return current_user_can( 'read' ); // anyone who can read site content
+        },
+    ] );
+} );
+
+function lgf_calendar_rest_table( WP_REST_Request $request ) {
+    $month = intval( $request->get_param( 'month' ) );
+    $year  = intval( $request->get_param( 'year' ) );
+
+    $calendar_data = lgf_calendar_view_get_calendar_data( $month, $year );
+
+    // Render only the table part (include a minimal template that outputs just the table)
+    $template = plugin_dir_path( __FILE__ ) . 'templates/table-fragment.php';
+    if ( ! file_exists( $template ) ) {
+        return new WP_Error( 'template_missing', 'Table fragment template not found', [ 'status' => 500 ] );
+    }
+
+    ob_start();
+    include $template;
+    $html = ob_get_clean();
+
+    return rest_ensure_response( [ 'html' => $html ] );
 }
