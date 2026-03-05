@@ -42,6 +42,31 @@
     overflow-x: auto;
 }
 
+/* Loading indicator */
+.lgf-calendar-view.loading {
+    position: relative;
+    min-height: 100px;
+}
+.lgf-calendar-view.loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 30px;
+    height: 30px;
+    margin: -15px 0 0 -15px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #0073aa;
+    border-radius: 50%;
+    animation: lgf-spin 1s linear infinite;
+    z-index: 100;
+}
+
+@keyframes lgf-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
 .lgf-calendar-view .calendar-grid {
     border-collapse: collapse;
     width: 100%;
