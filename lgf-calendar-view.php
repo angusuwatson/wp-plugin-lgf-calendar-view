@@ -135,6 +135,32 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
     // Debug: log how many rooms we fetched
     error_log( 'LGF Calendar: Fetched ' . count( $rooms ) . ' rooms. IDs: ' . implode( ',', wp_list_pluck( $rooms, 'id' ) ) );
 
+    // Assign theme colors per room (1-indexed)
+    $room_colors = [
+        1 => '#cc99ff',
+        2 => '#b4c7e7',
+        3 => '#a9d18e',
+        4 => '#ffe699',
+        5 => '#f4b183',
+    ];
+    foreach ( $rooms as $idx => $room ) {
+        $color = $room_colors[ $idx + 1 ] ?? '#cccccc';
+        $rooms[ $idx ]->color = $color;
+    }
+
+    // Assign theme colors per room (1-indexed)
+    $room_colors = [
+        1 => '#cc99ff',
+        2 => '#b4c7e7',
+        3 => '#a9d18e',
+        4 => '#ffe699',
+        5 => '#f4b183',
+    ];
+    foreach ( $rooms as $idx => $room ) {
+        $color = $room_colors[ $idx + 1 ] ?? '#cccccc';
+        $rooms[ $idx ]->color = $color;
+    }
+
     if ( empty( $rooms ) ) {
         $result = [
             'rooms' => [],
@@ -163,12 +189,22 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
                 check_in.meta_value as check_in_date,
                 check_out.meta_value as check_out_date,
                 rr.ID as reserved_room_id,
-                room_id_meta.meta_value as room_id
+                room_id_meta.meta_value as room_id,
+                channel_meta.meta_value as channel,
+                total_price_meta.meta_value as total_price,
+                adults_meta.meta_value as adults,
+                children_meta.meta_value as children,
+                dinner_meta.meta_value as dinner
             FROM {$wpdb->posts} AS b
             INNER JOIN {$wpdb->posts} AS rr ON rr.post_parent = b.ID AND rr.post_type = 'mphb_reserved_room'
             INNER JOIN {$wpdb->postmeta} AS room_id_meta ON room_id_meta.post_id = rr.ID AND room_id_meta.meta_key = '_mphb_room_id'
             INNER JOIN {$wpdb->postmeta} AS check_in ON check_in.post_id = b.ID AND check_in.meta_key = 'mphb_check_in_date'
             INNER JOIN {$wpdb->postmeta} AS check_out ON check_out.post_id = b.ID AND check_out.meta_key = 'mphb_check_out_date'
+            LEFT JOIN {$wpdb->postmeta} AS channel_meta ON channel_meta.post_id = b.ID AND channel_meta.meta_key = '_mphb_channel'
+            LEFT JOIN {$wpdb->postmeta} AS total_price_meta ON total_price_meta.post_id = b.ID AND total_price_meta.meta_key = '_mphb_total_price'
+            LEFT JOIN {$wpdb->postmeta} AS adults_meta ON adults_meta.post_id = rr.ID AND adults_meta.meta_key = '_mphb_adults'
+            LEFT JOIN {$wpdb->postmeta} AS children_meta ON children_meta.post_id = rr.ID AND children_meta.meta_key = '_mphb_children'
+            LEFT JOIN {$wpdb->postmeta} AS dinner_meta ON dinner_meta.post_id = rr.ID AND dinner_meta.meta_key = '_mphb_dinner'
             WHERE b.post_type = 'mphb_booking'
               AND b.post_status IN ('" . implode( "','", array_map( 'esc_sql', $locked_statuses ) ) . "')
               AND check_in.meta_value <= %s
@@ -216,6 +252,11 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
                 'check_in' => $b->check_in_date,
                 'check_out' => $b->check_out_date,
                 'room_id' => $room_id,
+                'channel' => $b->channel,
+                'total_price' => $b->total_price,
+                'adults' => intval( $b->adults ),
+                'children' => intval( $b->children ),
+                'dinner' => $b->dinner,
             ];
             if ( $date_str === $b->check_in_date ) {
                 $entry['is_checkin'] = true;
@@ -240,6 +281,11 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
                     'check_in' => $b->check_in_date,
                     'check_out' => $b->check_out_date,
                     'room_id' => $room_id,
+                    'channel' => $b->channel,
+                    'total_price' => $b->total_price,
+                    'adults' => intval( $b->adults ),
+                    'children' => intval( $b->children ),
+                    'dinner' => $b->dinner,
                 ];
             }
         }
@@ -272,11 +318,27 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
         }
         foreach ( $matrix as &$room_matrix ) {
             foreach ( $room_matrix as &$entry ) {
-                if ( $entry['booking'] && isset( $guest_names[ $entry['booking']->id ] ) ) {
-                    $guest = $guest_names[ $entry['booking']->id ];
-                    $entry['booking']->guest_name = trim( ($guest->first_name ?? '') . ' ' . ($guest->last_name ?? '') );
-                } elseif ( $entry['booking'] ) {
-                    $entry['booking']->guest_name = '';
+                if ( $entry['booking'] ) {
+                    $booking = $entry['booking'];
+                    // Set guest name if available
+                    if ( isset( $guest_names[ $booking->id ] ) ) {
+                        $guest = $guest_names[ $booking->id ];
+                        $booking->guest_name = trim( ($guest->first_name ?? '') . ' ' . ($guest->last_name ?? '') );
+                    } else {
+                        $booking->guest_name = '';
+                    }
+                    // Compute derived fields if not already set
+                    if ( ! isset( $booking->platform_label ) ) {
+                        $channel = $booking->channel ?? '';
+                        $platform_map = [ 'W' => 'Website', 'B' => 'Booking.com', 'E' => 'Email', 'T' => 'Telephone' ];
+                        $booking->platform_label = $platform_map[ $channel ] ?? $channel;
+                        $adults = intval( $booking->adults ?? 0 );
+                        $children = intval( $booking->children ?? 0 );
+                        $booking->occupancy_str = $adults . 'A ' . $children . 'E';
+                        $total = floatval( $booking->total_price ?? 0 );
+                        $booking->tarif = $total;
+                        $booking->commission = ( $channel === 'B' ) ? round( $total * 0.15, 2 ) : 0;
+                    }
                 }
             }
         }

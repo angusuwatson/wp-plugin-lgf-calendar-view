@@ -39,49 +39,41 @@
 
 /* Calendar grid scroll area */
 .lgf-calendar-view {
-    margin: 0; /* moved to container */
     overflow-x: auto;
 }
 
-.lgf-calendar-view table {
+.lgf-calendar-view .calendar-grid {
     border-collapse: collapse;
     width: 100%;
-    min-width: 900px;
+    min-width: 800px;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
-    font-size: 13px;
+    font-size: 12px;
+    table-layout: fixed;
 }
 
-.lgf-calendar-view th,
-.lgf-calendar-view td {
+.lgf-calendar-view .calendar-grid th,
+.lgf-calendar-view .calendar-grid td {
     border: 1px solid #ccc;
-    padding: 6px 8px;
-    text-align: center;
-    min-width: 36px;
-    height: 28px;
-    vertical-align: middle;
+    padding: 4px 6px;
+    min-width: 60px;
+    vertical-align: top;
+    height: auto;
 }
 
-.lgf-calendar-view th {
+.lgf-calendar-view .calendar-grid th {
     background-color: #eaeaea;
     font-weight: 600;
     position: sticky;
-    top: 0;
+    top: 40px; /* below nav */
     z-index: 2;
 }
 
-.lgf-calendar-view tr:nth-child(even) {
-    background-color: #f9f9f9;
-}
-
-.lgf-calendar-view tr:hover {
-    background-color: #f0f0f0;
-}
-
 /* Room column sticky and highlighted */
-.lgf-calendar-view .room-header,
-.lgf-calendar-view .room-name {
+.lgf-calendar-view .calendar-grid .room-header,
+.lgf-calendar-view .calendar-grid .room-name {
     text-align: left;
-    background-color: #e8f4ff;
+    background-color: #404040 !important;
+    color: #fff;
     position: sticky;
     left: 0;
     z-index: 3;
@@ -89,40 +81,40 @@
     border-right: 2px solid #999;
 }
 
-.lgf-calendar-view .has-booking {
-    background-color: #fffacd; /* light yellow */
-}
-
-.lgf-calendar-view .available {
-    background-color: #f0fff0; /* light green */
-}
-
-.lgf-calendar-view .booking-status {
-    font-weight: bold;
-    font-size: 11px;
-}
-
-.lgf-calendar-view .guest-name {
-    font-size: 10px;
-    color: #555;
+/* Day cells: lines */
+.lgf-calendar-view .calendar-grid .day-cell .line {
+    margin-bottom: 2px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 80px;
+}
+.lgf-calendar-view .calendar-grid .day-cell .line:last-child {
+    margin-bottom: 0;
+}
+.lgf-calendar-view .calendar-grid .day-cell .free {
+    color: transparent;
+}
+.lgf-calendar-view .calendar-grid .day-cell .free::before {
+    content: "\00a0";
 }
 
-/* Responsive */
+/* Weekend highlighting */
+.lgf-calendar-view .calendar-grid th.weekend {
+    background-color: #f9d5e5;
+}
+
+/* Optional: responsive */
 @media (max-width: 768px) {
-    .lgf-calendar-view {
+    .lgf-calendar-container {
         font-size: 12px;
     }
-    .lgf-calendar-view th,
-    .lgf-calendar-view td {
-        padding: 4px 6px;
-        min-width: 30px;
+    .lgf-calendar-view .calendar-grid th,
+    .lgf-calendar-view .calendar-grid td {
+        padding: 3px 5px;
+        min-width: 50px;
     }
-    .lgf-calendar-view .room-header,
-    .lgf-calendar-view .room-name {
+    .lgf-calendar-view .calendar-grid .room-header,
+    .lgf-calendar-view .calendar-grid .room-name {
         min-width: 100px;
     }
 }

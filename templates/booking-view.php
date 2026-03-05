@@ -7,12 +7,7 @@ $year                 = $calendar_data['year'];
 $days_in_month        = $calendar_data['days_in_month'];
 $days                 = $calendar_data['days'];
 
-// Helper to get entry
-$get_entry = function( $room_id, $date_str ) use ( $matrix ) {
-    return $matrix[ $room_id ][ $date_str ] ?? null;
-};
-
-// Navigation URLs (simple full-page links, no AJAX)
+// Nav URLs
 $prev_month = $month - 1;
 $prev_year = $year;
 if ($prev_month < 1) { $prev_month = 12; $prev_year--; }
@@ -34,43 +29,48 @@ $today_year = date('Y');
     </div>
 
     <div class="lgf-calendar-view">
-        <table class="wp-list-table widefat fixed striped">
+        <table class="wp-list-table widefat fixed striped calendar-grid">
             <thead>
                 <tr>
                     <th class="room-header"><?php esc_html_e( 'Room', 'lgf-calendar-view' ); ?></th>
-                    <?php foreach ( $days as $day ) : 
+                    <?php foreach ( $days as $day ) :
                         $date_str = sprintf( '%04d-%02d-%02d', $year, $month, $day );
                         $day_of_week = date_i18n( 'D', strtotime( $date_str ) );
+                        $header_class = in_array( $day_of_week, ['Sat','Sun'] ) ? 'weekend' : '';
                     ?>
-                        <th><?php echo esc_html( $day . ' ' . $day_of_week ); ?></th>
+                        <th class="<?php echo $header_class; ?>">
+                            <?php echo esc_html( $day . ' ' . $day_of_week ); ?>
+                        </th>
                     <?php endforeach; ?>
                 </tr>
             </thead>
             <tbody>
                 <?php if ( empty( $rooms ) ) : ?>
                     <tr>
-                        <td colspan="<?php echo $days_in_month + 1; ?>"><?php esc_html_e( 'No rooms found.', 'lgf-calendar-view' ); ?></td>
+                        <td colspan="<?php echo 1 + $days_in_month; ?>"><?php esc_html_e( 'No rooms found.', 'lgf-calendar-view' ); ?></td>
                     </tr>
                 <?php else : ?>
-                    <?php foreach ( $rooms as $room ) : 
+                    <?php foreach ( $rooms as $room ) :
                         $room_id = $room->id;
+                        $row_style = 'style="background-color:' . esc_attr( $room->color ?? '#ccc' ) . '"';
                     ?>
-                        <tr>
-                            <td class="room-name"><?php echo esc_html( $room->title ); ?></td>
-                            <?php foreach ( $days as $day ) : 
+                        <tr <?php echo $row_style; ?>>
+                            <td class="room-name" style="background-color: #404040; color: #fff;"><?php echo esc_html( $room->title ); ?></td>
+                            <?php foreach ( $days as $day ) :
                                 $date_str = sprintf( '%04d-%02d-%02d', $year, $month, $day );
-                                $entry = $get_entry( $room_id, $date_str );
-                                $booking = $entry && isset( $entry['booking'] ) ? $entry['booking'] : null;
-                                $cell_class = $booking ? 'has-booking status-' . esc_attr( $booking->status ) : 'available';
+                                $entry = $matrix[ $room_id ][ $date_str ] ?? null;
+                                $booking = $entry && isset( $entry['booking'] ) && $entry['booking'] ? $entry['booking'] : null;
                             ?>
-                                <td class="<?php echo $cell_class; ?>">
+                                <td class="day-cell">
                                     <?php if ( $booking ) : ?>
-                                        <div class="booking-status"><?php echo esc_html( $booking->status ); ?></div>
-                                        <?php if ( ! empty( $booking->guest_name ) ) : ?>
-                                            <div class="guest-name"><?php echo esc_html( $booking->guest_name ); ?></div>
-                                        <?php endif; ?>
+                                        <div class="line guest"><?php echo esc_html( $booking->guest_name ?? '' ); ?></div>
+                                        <div class="line platform"><?php echo esc_html( $booking->platform_label ?? '' ); ?></div>
+                                        <div class="line occupancy"><?php echo esc_html( $booking->occupancy_str ?? '' ); ?></div>
+                                        <div class="line dinner"><?php echo esc_html( $booking->dinner ?? '' ); ?></div>
+                                        <div class="line tarif"><?php echo esc_html( $booking->tarif ?? '' ); ?></div>
+                                        <div class="line commission"><?php echo esc_html( $booking->commission ?? '' ); ?></div>
                                     <?php else : ?>
-                                        &nbsp;
+                                        <div class="line free">&nbsp;</div>
                                     <?php endif; ?>
                                 </td>
                             <?php endforeach; ?>
@@ -81,3 +81,12 @@ $today_year = date('Y');
         </table>
     </div>
 </div>
+<?php
+// DEBUG: dump matrix sample for admin
+if ( current_user_can( 'manage_options' ) ) {
+    echo '<h3>DEBUG: Matrix sample</h3>';
+    echo '<pre>';
+    print_r( array_slice( $matrix, 0, 2, true ) );
+    echo '</pre>';
+}
+?>
