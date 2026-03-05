@@ -301,7 +301,7 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
         $placeholders = implode( ',', array_fill( 0, count( $booking_ids ), '%d' ) );
         $meta_rows = $wpdb->get_results(
             $wpdb->prepare(
-                "SELECT post_id, meta_key, meta_value FROM {$mphb_postmeta} WHERE post_id IN ($placeholders) AND meta_key IN ('_mphb_first_name', '_mphb_last_name')",
+                "SELECT post_id, meta_key, meta_value FROM {$wpdb->postmeta} WHERE post_id IN ($placeholders) AND meta_key IN ('_mphb_first_name', '_mphb_last_name')",
                 $booking_ids
             )
         );

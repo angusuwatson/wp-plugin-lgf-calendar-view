@@ -1,11 +1,11 @@
 <?php
 /* @var $calendar_data array */
-$rooms                = $calendar_data['rooms'];
-$matrix               = $calendar_data['matrix'];
-$month                = $calendar_data['month'];
-$year                 = $calendar_data['year'];
-$days_in_month        = $calendar_data['days_in_month'];
-$days                 = $calendar_data['days'];
+$rooms = $calendar_data['rooms'];
+$matrix = $calendar_data['matrix'];
+$month = $calendar_data['month'];
+$year = $calendar_data['year'];
+$days_in_month = $calendar_data['days_in_month'];
+$days = $calendar_data['days'];
 
 // Nav URLs
 $prev_month = $month - 1;
@@ -17,7 +17,6 @@ if ($next_month > 12) { $next_month = 1; $next_year++; }
 $today_month = date('n');
 $today_year = date('Y');
 ?>
-
 <div class="lgf-calendar-container">
     <div class="calendar-nav">
         <a class="button" href="<?php echo esc_url( add_query_arg( ['month' => $prev_month, 'year' => $prev_year] ) ); ?>">&laquo; <?php esc_html_e( 'Previous', 'lgf-calendar-view' ); ?></a>
@@ -36,25 +35,23 @@ $today_year = date('Y');
                         <td colspan="<?php echo 1 + $days_in_month; ?>"><?php esc_html_e( 'No rooms found.', 'lgf-calendar-view' ); ?></td>
                     </tr>
                 <?php else : ?>
-                    <!-- Header row with day numbers -->
+                    <!-- Header row -->
                     <tr class="header-row">
                         <td class="label" style="position: sticky; left: 0; background:#eaeaea;"></td>
                         <?php foreach ( $days as $day ) : ?>
                             <td><?php echo esc_html( $day ); ?></td>
                         <?php endforeach; ?>
                     </tr>
-<?php endif; ?>
                     <?php foreach ( $rooms as $room ) :
                         $room_id = $room->id;
                         $color = $room->color ?? '#ccc';
-                        // Define row specifications
                         $rows = [
                             [
                                 'label' => $room->title,
                                 'class' => 'room-name-row',
                                 'label_style' => 'background:#404040; color:#fff;',
                                 'cell_style' => 'background:#404040;',
-                                'value' => null // empty
+                                'value' => null
                             ],
                             [
                                 'label' => 'Guest',
@@ -117,14 +114,16 @@ $today_year = date('Y');
                                 </td>
                             <?php endforeach; ?>
                         </tr>
-                    <?php endforeach; endforeach; ?>
+                    <?php
+                        endforeach; // rows
+                        endforeach; // rooms
+                    ?>
                 <?php endif; ?>
             </tbody>
         </table>
     </div>
 </div>
 <?php
-// DEBUG: dump matrix sample for admin
 if ( current_user_can( 'manage_options' ) ) {
     echo '<h3>DEBUG: Matrix sample</h3>';
     echo '<pre>';

@@ -1,13 +1,12 @@
 <?php
 /* @var $calendar_data array */
-$rooms                = $calendar_data['rooms'];
-$matrix               = $calendar_data['matrix'];
-$month                = $calendar_data['month'];
-$year                 = $calendar_data['year'];
-$days_in_month        = $calendar_data['days_in_month'];
-$days                 = $calendar_data['days'];
+$rooms = $calendar_data['rooms'];
+$matrix = $calendar_data['matrix'];
+$month = $calendar_data['month'];
+$year = $calendar_data['year'];
+$days_in_month = $calendar_data['days_in_month'];
+$days = $calendar_data['days'];
 ?>
-
 <table class="wp-list-table widefat fixed striped calendar-grid">
     <tbody>
         <?php if ( empty( $rooms ) ) : ?>
@@ -15,14 +14,13 @@ $days                 = $calendar_data['days'];
                 <td colspan="<?php echo 1 + $days_in_month; ?>"><?php esc_html_e( 'No rooms found.', 'lgf-calendar-view' ); ?></td>
             </tr>
         <?php else : ?>
-            <!-- Header row with day numbers -->
+            <!-- Header row -->
             <tr class="header-row">
                 <td class="label" style="position: sticky; left: 0; background:#eaeaea;"></td>
                 <?php foreach ( $days as $day ) : ?>
                     <td><?php echo esc_html( $day ); ?></td>
                 <?php endforeach; ?>
             </tr>
-<?php endif; ?>
             <?php foreach ( $rooms as $room ) :
                 $room_id = $room->id;
                 $color = $room->color ?? '#ccc';
@@ -95,6 +93,10 @@ $days                 = $calendar_data['days'];
                         </td>
                     <?php endforeach; ?>
                 </tr>
-            <?php endforeach; endforeach; ?>
-        </tbody>
+            <?php
+                endforeach; // rows
+                endforeach; // rooms
+            ?>
+        <?php endif; ?>
+    </tbody>
 </table>
