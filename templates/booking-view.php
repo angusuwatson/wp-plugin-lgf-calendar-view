@@ -49,19 +49,23 @@ $get_entry = function( $room_id, $date_str ) use ( $matrix ) {
                         <?php foreach ( $days as $day ) :
                             $date_str = sprintf( '%04d-%02d-%02d', $year, $month, $day );
                             $entry = $get_entry( $room_id, $date_str );
-                            $has_data = $entry && isset( $entry['booking'] ) && $entry['booking'];
-                            $is_locked = $entry && $entry['is_locked'];
-                            $is_checkout = $entry && $entry['is_checkout'];
-                            $is_checkin = $entry && $entry['is_checkin'];
+                            $has_booking = $entry && isset( $entry['booking'] ) && $entry['booking'];
+                            $is_checkout = $entry && isset( $entry['is_checkout'] ) && $entry['is_checkout'];
+                            $is_checkin = $entry && isset( $entry['is_checkin'] ) && $entry['is_checkin'];
                         ?>
                             <td class="half half-out
                                 <?php
-                                if ( $is_checkout ) echo 'checkout';
-                                elseif ( $is_locked ) echo 'occupied';
-                                else echo 'free';
-                                echo $has_data ? ' has-booking' : '';
+                                // The room is occupied for this date if there's a booking object
+                                $occupied = $has_booking;
+                                if ( $occupied ) {
+                                    echo 'occupied';
+                                    if ( $is_checkout ) echo ' checkout';
+                                } else {
+                                    echo 'free';
+                                }
+                                if ( $has_booking ) echo ' has-booking';
                                 ?>">
-                                <?php if ( $is_checkout && $has_data ) : ?>
+                                <?php if ( $occupied ) : ?>
                                     <div class="status-badge status-<?php echo esc_attr( $entry['booking']->status ); ?>">
                                         <?php echo esc_html( $entry['booking']->status ); ?>
                                     </div>
@@ -72,12 +76,15 @@ $get_entry = function( $room_id, $date_str ) use ( $matrix ) {
                             </td>
                             <td class="half half-in
                                 <?php
-                                if ( $is_checkin ) echo 'checkin';
-                                elseif ( $is_locked ) echo 'occupied';
-                                else echo 'free';
-                                echo $has_data ? ' has-booking' : '';
+                                if ( $occupied ) {
+                                    echo 'occupied';
+                                    if ( $is_checkin ) echo ' checkin';
+                                } else {
+                                    echo 'free';
+                                }
+                                if ( $has_booking ) echo ' has-booking';
                                 ?>">
-                                <?php if ( $is_checkin && $has_data ) : ?>
+                                <?php if ( $occupied ) : ?>
                                     <div class="status-badge status-<?php echo esc_attr( $entry['booking']->status ); ?>">
                                         <?php echo esc_html( $entry['booking']->status ); ?>
                                     </div>

@@ -13,7 +13,7 @@ defined( 'ABSPATH' ) || exit;
 // Check for required Motopress Hotel Booking plugin
 add_action( 'plugins_loaded', 'lgf_calendar_view_check_dependency' );
 function lgf_calendar_view_check_dependency() {
-    if ( ! class_exists( 'MPHB' ) ) {
+    if ( ! function_exists( 'MPHB' ) || ! class_exists( 'HotelBookingPlugin' ) ) {
         add_action( 'admin_notices', function() {
             ?>
             <div class="notice notice-error">
@@ -42,7 +42,8 @@ function lgf_calendar_view_enqueue_assets() {
  * @return array Calendar data structure
  */
 function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
-    if ( ! class_exists( 'MPHB' ) ) {
+    // Use Motopress facades directly; they handle caching themselves
+    if ( ! function_exists( 'mphb_rooms_facade' ) ) {
         return [
             'rooms' => [],
             'matrix' => [],
@@ -56,7 +57,7 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
     $month = $month ?: date( 'n' );
     $year  = $year  ?: date( 'Y' );
 
-    // Build transient key: include all room types? We'll use all rooms.
+    // Build transient key
     $transient_key = 'lgf_calendar_' . $year . '_' . $month;
     $cached = get_transient( $transient_key );
     if ( false !== $cached ) {
@@ -71,8 +72,8 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
     $first_day_str = $first_day->format( 'Y-m-d' );
     $last_day_str  = $last_day->format( 'Y-m-d' );
 
-    // Fetch all rooms (active)
-    $rooms = MPHB()->getRoomPersistence()->getPosts( [
+    // Fetch all rooms using Motopress facade
+    $rooms = mphb_rooms_facade()->getPosts( [
         'post_status' => 'publish',
         'posts_per_page' => -1,
         'orderby' => 'title',
@@ -92,14 +93,22 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
         return $result;
     }
 
-    // Fetch bookings that overlap the month (same as Motopress: check_in <= last_day AND check_out >= first_day)
+    // Get bookings that overlap the month using Motopress's facade for consistency
+    $bookings_facade = mphb_bookings_facade();
+    $booked_days_all = $bookings_facade->getBookedDays(); // returns per room_type_id
+
+    // We need per-room and per-date. Let's build matrix from the raw overlap query (more precise)
+    // We'll still use direct query but ensure consistency with Motopress statuses
     global $wpdb;
     $mphb_bookings_table = $wpdb->prefix . 'mphb_bookings';
     $mphb_reserved_room_table = $wpdb->prefix . 'mphb_reserved_room';
     $mphb_postmeta = $wpdb->prefix . 'postmeta';
 
-    // Get bookings with status that block rooms
-    $booking_statuses = [ 'confirmed', 'pending', 'pending-user', 'pending-payment' ]; // from Motopress
+    // Get booking statuses that lock rooms from Motopress itself
+    $locked_statuses = mphb_availability_facade()->getLockingStatuses(); // hopefully exists; if not, hardcode
+    if ( empty( $locked_statuses ) ) {
+        $locked_statuses = [ 'confirmed', 'pending', 'pending-user', 'pending-payment' ];
+    }
 
     $bookings = $wpdb->get_results(
         $wpdb->prepare(
@@ -117,7 +126,7 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
             INNER JOIN {$mphb_postmeta} room_id ON room_id.post_id = rr.ID AND room_id.meta_key = '_mphb_room_id'
             INNER JOIN {$mphb_postmeta} check_in ON check_in.post_id = b.ID AND check_in.meta_key = 'mphb_check_in_date'
             INNER JOIN {$mphb_postmeta} check_out ON check_out.post_id = b.ID AND check_out.meta_key = 'mphb_check_out_date'
-            WHERE b.post_status IN ('" . implode( "','", array_map( 'esc_sql', $booking_statuses ) ) . "')
+            WHERE b.post_status IN ('" . implode( "','", array_map( 'esc_sql', $locked_statuses ) ) . "')
               AND check_in.meta_value <= %s
               AND check_out.meta_value >= %s
             ",
@@ -132,19 +141,16 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
         $matrix[ $room->ID ] = [];
     }
 
-    // Get guest names from booking posts (meta or post fields)
-    // Motopress stores customer name in meta: _mphb_first_name, _mphb_last_name, or maybe in billing details
     foreach ( $bookings as $b ) {
         $room_id = intval( $b->room_id );
         if ( ! isset( $matrix[ $room_id ] ) ) {
-            // Room might be deleted/inactive; skip
             continue;
         }
 
         $check_in = new DateTime( $b->check_in_date );
         $check_out = new DateTime( $b->check_out_date );
 
-        // Iterate dates from check_in (inclusive) to check_out (exclusive)
+        // Mark stay nights (check-in inclusive, check-out exclusive)
         for ( $date = clone $check_in; $date < $check_out; $date->modify( '+1 day' ) ) {
             $date_str = $date->format( 'Y-m-d' );
             if ( $date_str < $first_day_str || $date_str > $last_day_str ) {
@@ -164,19 +170,13 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
                 'check_in' => $b->check_in_date,
                 'check_out' => $b->check_out_date,
                 'room_id' => $room_id,
-                // We'll fetch guest name later in bulk
             ];
-            // Check-in day is the first day of stay
             if ( $date_str === $b->check_in_date ) {
                 $entry['is_checkin'] = true;
             }
-            // Check-out day is the last day of stay (but not included in stay days; we mark it as check-out)
-            // Note: check_out date itself is NOT a stay night; it's the departure day. In our loop, we go up to but not including check_out, so check_out day will not be visited.
-            // So we need to also mark the check_out day as checkout if it's within the month, even though no stay that night.
-            // We'll handle that separately below.
         }
 
-        // Mark the check_out day as a checkout event if it's within the month
+        // Mark check-out day separately (if within month)
         $check_out_date_str = $check_out->format( 'Y-m-d' );
         if ( $check_out_date_str >= $first_day_str && $check_out_date_str <= $last_day_str ) {
             if ( ! isset( $matrix[ $room_id ][ $check_out_date_str ] ) ) {
@@ -187,7 +187,6 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
                 ];
             }
             $matrix[ $room_id ][ $check_out_date_str ]['is_checkout'] = true;
-            // Also ensure the booking object is there so we can identify which booking
             if ( is_null( $matrix[ $room_id ][ $check_out_date_str ]['booking'] ) ) {
                 $matrix[ $room_id ][ $check_out_date_str ]['booking'] = (object) [
                     'id' => $b->booking_id,
@@ -204,7 +203,6 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
     $booking_ids = array_unique( array_column( $bookings, 'booking_id' ) );
     $guest_names = [];
     if ( ! empty( $booking_ids ) ) {
-        // Get first name and last name meta
         $placeholders = implode( ',', array_fill( 0, count( $booking_ids ), '%d' ) );
         $meta_rows = $wpdb->get_results(
             $wpdb->prepare(
@@ -223,7 +221,6 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
                 $guest_names[ $bid ]->last_name = $row->meta_value;
             }
         }
-        // Attach guest_name to booking objects in matrix
         foreach ( $matrix as &$room_matrix ) {
             foreach ( $room_matrix as &$entry ) {
                 if ( $entry['booking'] && isset( $guest_names[ $entry['booking']->id ] ) ) {
@@ -245,7 +242,6 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
         'days' => range(1, $days_in_month),
     ];
 
-    // Cache for 30 minutes
     set_transient( $transient_key, $result, 30 * MINUTE_IN_SECONDS );
 
     return $result;
