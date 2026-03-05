@@ -68,18 +68,14 @@
 }
 
 /* Header row (day numbers) */
-.lgf-calendar-view .calendar-grid tr.header-row td {
+.lgf-calendar-view .calendar-grid tr.header-row th {
     background-color: #eaeaea;
     font-weight: 600;
     text-align: center;
-    position: sticky;
-    top: 60px;
-    z-index: 10;
     border-bottom: 1px solid #ccc;
 }
-.lgf-calendar-view .calendar-grid tr.header-row td.label {
+.lgf-calendar-view .calendar-grid tr.header-row th.label {
     background-color: #eaeaea;
-    z-index: 15; /* intersection of header + label */
 }
 
 /* Sticky first column (labels) */
@@ -87,8 +83,7 @@
     position: sticky;
     left: 0;
     z-index: 5;
-    background-color: #f0f0f0; /* default label background */
-    font-weight: bold;
+    border-right: 1px solid black; /* thin vertical border */
 }
 
 /* Room name row: entire row dark with white text, thick bottom border */
@@ -111,11 +106,6 @@
 /* Commission row white background */
 .lgf-calendar-view .calendar-grid tr.commission-row td {
     background-color: #fff !important;
-}
-
-/* Weekend highlighting on header cells (if we still use th class) */
-.lgf-calendar-view .calendar-grid th.weekend {
-    background-color: #f9d5e5;
 }
 
 /* Responsive */

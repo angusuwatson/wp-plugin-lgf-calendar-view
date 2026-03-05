@@ -29,19 +29,20 @@ $today_year = date('Y');
 
     <div class="lgf-calendar-view">
         <table class="wp-list-table widefat fixed striped calendar-grid">
+            <thead>
+                <tr class="header-row">
+                    <th class="label" style="position: sticky; left: 0; background:#eaeaea; border-right: 1px solid black;"></th>
+                    <?php foreach ( $days as $day ) : ?>
+                        <th><?php echo esc_html( $day ); ?></th>
+                    <?php endforeach; ?>
+                </tr>
+            </thead>
             <tbody>
                 <?php if ( empty( $rooms ) ) : ?>
                     <tr>
                         <td colspan="<?php echo 1 + $days_in_month; ?>"><?php esc_html_e( 'No rooms found.', 'lgf-calendar-view' ); ?></td>
                     </tr>
                 <?php else : ?>
-                    <!-- Header row -->
-                    <tr class="header-row">
-                        <td class="label" style="position: sticky; left: 0; background:#eaeaea;"></td>
-                        <?php foreach ( $days as $day ) : ?>
-                            <td><?php echo esc_html( $day ); ?></td>
-                        <?php endforeach; ?>
-                    </tr>
                     <?php foreach ( $rooms as $room ) :
                         $room_id = $room->id;
                         $color = $room->color ?? '#ccc';
@@ -49,49 +50,49 @@ $today_year = date('Y');
                             [
                                 'label' => $room->title,
                                 'class' => 'room-name-row',
-                                'label_style' => 'background:#404040; color:#fff;',
+                                'label_style' => 'background:#404040; color:#fff; border-right: 1px solid black;',
                                 'cell_style' => 'background:#404040;',
                                 'value' => null
                             ],
                             [
                                 'label' => 'Guest',
                                 'class' => 'guest-row',
-                                'label_style' => '',
+                                'label_style' => 'border-right: 1px solid black;',
                                 'cell_style' => "background:$color;",
                                 'value_fn' => function($b) { return $b->guest_name ?? ''; }
                             ],
                             [
                                 'label' => 'Platform',
                                 'class' => 'platform-row',
-                                'label_style' => '',
+                                'label_style' => 'border-right: 1px solid black;',
                                 'cell_style' => "background:$color;",
                                 'value_fn' => function($b) { return $b->platform_label ?? ''; }
                             ],
                             [
                                 'label' => 'Occupancy',
                                 'class' => 'occupancy-row',
-                                'label_style' => '',
+                                'label_style' => 'border-right: 1px solid black;',
                                 'cell_style' => "background:$color;",
                                 'value_fn' => function($b) { return $b->occupancy_str ?? ''; }
                             ],
                             [
                                 'label' => 'Dinner',
                                 'class' => 'dinner-row',
-                                'label_style' => '',
+                                'label_style' => 'border-right: 1px solid black;',
                                 'cell_style' => "background:$color;",
                                 'value_fn' => function($b) { return $b->dinner ?? ''; }
                             ],
                             [
                                 'label' => 'Tarif',
                                 'class' => 'tarif-row',
-                                'label_style' => '',
+                                'label_style' => 'border-right: 1px solid black;',
                                 'cell_style' => "background:$color;",
                                 'value_fn' => function($b) { return $b->tarif !== '' ? number_format($b->tarif, 2) : ''; }
                             ],
                             [
                                 'label' => 'Commission',
                                 'class' => 'commission-row',
-                                'label_style' => '',
+                                'label_style' => 'border-right: 1px solid black;',
                                 'cell_style' => 'background:#fff;',
                                 'value_fn' => function($b) { return $b->commission !== '' ? number_format($b->commission, 2) : ''; }
                             ],
