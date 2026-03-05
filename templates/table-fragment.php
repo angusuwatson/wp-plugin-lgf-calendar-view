@@ -9,26 +9,20 @@ $days                 = $calendar_data['days'];
 ?>
 
 <table class="wp-list-table widefat fixed striped calendar-grid">
-    <thead>
-        <tr>
-            <th class="label-header">Field</th>
-            <?php foreach ( $days as $day ) :
-                $date_str = sprintf( '%04d-%02d-%02d', $year, $month, $day );
-                $day_of_week = date_i18n( 'D', strtotime( $date_str ) );
-                $header_class = in_array( $day_of_week, ['Sat','Sun'] ) ? 'weekend' : '';
-            ?>
-                <th class="<?php echo $header_class; ?>">
-                    <?php echo esc_html( $day . ' ' . $day_of_week ); ?>
-                </th>
-            <?php endforeach; ?>
-        </tr>
-    </thead>
     <tbody>
         <?php if ( empty( $rooms ) ) : ?>
             <tr>
                 <td colspan="<?php echo 1 + $days_in_month; ?>"><?php esc_html_e( 'No rooms found.', 'lgf-calendar-view' ); ?></td>
             </tr>
         <?php else : ?>
+            <!-- Header row with day numbers -->
+            <tr class="header-row">
+                <td class="label" style="position: sticky; left: 0; background:#eaeaea;"></td>
+                <?php foreach ( $days as $day ) : ?>
+                    <td><?php echo esc_html( $day ); ?></td>
+                <?php endforeach; ?>
+            </tr>
+<?php endif; ?>
             <?php foreach ( $rooms as $room ) :
                 $room_id = $room->id;
                 $color = $room->color ?? '#ccc';
