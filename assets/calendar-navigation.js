@@ -30,6 +30,7 @@
 
         // Load month via AJAX
         function loadMonth(month, year, pushState) {
+            console.log('Loading month:', month, year);
             $.ajax({
                 url: restUrl,
                 method: 'GET',
@@ -42,6 +43,7 @@
                     year: year
                 },
                 success: function(response) {
+                    console.log('AJAX response:', response);
                     if (response && response.html) {
                         $tableWrapper.html(response.html);
                         if (pushState) {
@@ -51,11 +53,13 @@
                             window.history.pushState({ month: month, year: year }, '', newUrl);
                         }
                     } else {
-                        alert('Failed to load calendar data.');
+                        console.error('No HTML in response:', response);
+                        alert('Failed to load calendar data: empty response.');
                     }
                 },
-                error: function() {
-                    alert('Error loading calendar. Please try again.');
+                error: function(xhr, status, error) {
+                    console.error('AJAX error:', status, error, xhr.responseText);
+                    alert('Error loading calendar (status: ' + status + '). See console for details.');
                 },
                 complete: function() {
                     $tableWrapper.removeClass('loading');
