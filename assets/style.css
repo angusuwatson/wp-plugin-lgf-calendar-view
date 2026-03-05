@@ -1,19 +1,24 @@
 /* LGF Calendar View Styles */
 
-.lgf-calendar-view {
+.lgf-calendar-container {
     margin: 1em 0;
-    overflow-x: auto;
 }
 
 /* Navigation controls */
-.lgf-calendar-view .calendar-nav {
+.lgf-calendar-container .calendar-nav {
     margin-bottom: 12px;
     display: flex;
     gap: 8px;
     align-items: center;
     flex-wrap: wrap;
+    position: sticky;
+    top: 0;
+    background: #fff;
+    padding: 8px 0;
+    z-index: 10;
+    border-bottom: 1px solid #eee;
 }
-.lgf-calendar-view .calendar-nav .button {
+.lgf-calendar-container .calendar-nav .button {
     text-decoration: none;
     padding: 6px 14px;
     background: #f0f0f0;
@@ -23,16 +28,20 @@
     font-size: 13px;
     cursor: pointer;
 }
-.lgf-calendar-view .calendar-nav .button:hover {
+.lgf-calendar-container .calendar-nav .button:hover {
     background: #e0e0e0;
 }
-.lgf-calendar-view .calendar-nav .current-month {
+.lgf-calendar-container .calendar-nav .current-month {
     font-weight: bold;
     font-size: 15px;
     margin: 0 8px;
 }
 
-/* Calendar grid */
+/* Calendar grid scroll area */
+.lgf-calendar-view {
+    overflow-x: auto;
+}
+
 .lgf-calendar-view .calendar-grid {
     border-collapse: collapse;
     width: 100%;
@@ -55,7 +64,7 @@
     background-color: #eaeaea;
     font-weight: 600;
     position: sticky;
-    top: 0;
+    top: 40px; /* below nav */
     z-index: 2;
 }
 
@@ -125,7 +134,7 @@
 
 /* Weekend highlighting */
 .lgf-calendar-view .calendar-grid th.weekend {
-    background-color: #f9d5e5; /* light pink */
+    background-color: #f9d5e5; /* light pink for weekend column headers */
 }
 
 .lgf-calendar-view .calendar-grid tr:nth-child(even) {
@@ -138,7 +147,7 @@
 
 /* Responsive */
 @media (max-width: 768px) {
-    .lgf-calendar-view {
+    .lgf-calendar-container {
         font-size: 12px;
     }
     .lgf-calendar-view .calendar-grid th,
