@@ -113,13 +113,8 @@ $days = $calendar_data['days'];
                         if ($booking && isset($row['value_fn'])) {
                             $value = $row['value_fn']($booking);
                         }
-                        // Conditional background for colored rows: only show color when booking exists
-                        $cell_style = $row['cell_style'];
-                        if (in_array($row['class'], ['guest-row','platform-row','occupancy-row','dinner-row','tarif-row'])) {
-                            $cell_style = $booking ? $row['cell_style'] : 'background:#fff;';
-                        }
                     ?>
-                        <td style="<?php echo esc_attr($cell_style); ?>">
+                        <td style="<?php echo esc_attr($row['cell_style']); ?>">
                             <?php echo esc_html( $value ); ?>
                         </td>
                     <?php endforeach; ?>

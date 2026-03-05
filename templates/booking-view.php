@@ -134,13 +134,8 @@ $today_year = date('Y');
                                 if ($booking && isset($row['value_fn'])) {
                                     $value = $row['value_fn']($booking);
                                 }
-                                // Determine cell background: for rows that normally have room color, show color only if booking exists; else white.
-                                $cell_style = $row['cell_style'];
-                                if (in_array($row['class'], ['guest-row','platform-row','occupancy-row','dinner-row','tarif-row'])) {
-                                    $cell_style = $booking ? $row['cell_style'] : 'background:#fff;';
-                                }
                             ?>
-                                <td style="<?php echo esc_attr($cell_style); ?>">
+                                <td style="<?php echo esc_attr($row['cell_style']); ?>">
                                     <?php echo esc_html( $value ); ?>
                                 </td>
                             <?php endforeach; ?>
@@ -154,11 +149,3 @@ $today_year = date('Y');
         </table>
     </div>
 </div>
-<?php
-if ( current_user_can( 'manage_options' ) ) {
-    echo '<h3>DEBUG: Matrix sample</h3>';
-    echo '<pre>';
-    print_r( array_slice( $matrix, 0, 2, true ) );
-    echo '</pre>';
-}
-?>
