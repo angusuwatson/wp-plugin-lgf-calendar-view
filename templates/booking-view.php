@@ -1,7 +1,5 @@
 <?php
 /* @var $calendar_data array */
-// DEBUG: output visible comment
-echo "<!-- LGF DEBUG: Rooms count=" . count( $calendar_data['rooms'] ) . ", Bookings=" . (isset($matrix) ? count($matrix) : 'n/a') . " -->\n";
 $rooms                = $calendar_data['rooms'];
 $matrix               = $calendar_data['matrix'];
 $month                = $calendar_data['month'];
