@@ -14,6 +14,25 @@ $get_entry = function( $room_id, $date_str ) use ( $matrix ) {
 ?>
 
 <div class="lgf-calendar-view">
+    <div class="calendar-nav">
+        <?php
+        $prev_month = $month - 1;
+        $prev_year = $year;
+        if ($prev_month < 1) { $prev_month = 12; $prev_year--; }
+        $next_month = $month + 1;
+        $next_year = $year;
+        if ($next_month > 12) { $next_month = 1; $next_year++; }
+        $today_month = date('n');
+        $today_year = date('Y');
+        ?>
+        <a class="button" href="<?php echo esc_url( add_query_arg( ['month' => $prev_month, 'year' => $prev_year] ) ); ?>">&laquo; <?php esc_html_e( 'Previous', 'lgf-calendar-view' ); ?></a>
+        <span class="current-month"><?php echo esc_html( date_i18n( 'F Y', mktime(0,0,0,$month,1,$year) ) ); ?></span>
+        <a class="button" href="<?php echo esc_url( add_query_arg( ['month' => $next_month, 'year' => $next_year] ) ); ?>"><?php esc_html_e( 'Next', 'lgf-calendar-view' ); ?> &raquo;</a>
+        <?php if ( $month != $today_month || $year != $today_year ): ?>
+            <a class="button" href="<?php echo esc_url( add_query_arg( ['month' => $today_month, 'year' => $today_year] ) ); ?>"><?php esc_html_e( 'Today', 'lgf-calendar-view' ); ?></a>
+        <?php endif; ?>
+    </div>
+
     <table class="wp-list-table widefat fixed striped calendar-grid">
         <thead>
             <tr>

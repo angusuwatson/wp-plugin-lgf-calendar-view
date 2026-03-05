@@ -160,7 +160,7 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
     // Build matrix: room_id => date_str => ['booking' => object, 'is_checkin' => bool, 'is_checkout' => bool]
     $matrix = [];
     foreach ( $rooms as $room ) {
-        $matrix[ $room->ID ] = [];
+        $matrix[ $room->id ] = [];
     }
 
     foreach ( $bookings as $b ) {
@@ -267,8 +267,8 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
         'days' => range(1, $days_in_month),
     ];
 
-    // DEBUG: log counts to PHP error log (goes to Docker stderr)
-    error_log( 'LGF Calendar DEBUG: Rooms=' . count( $rooms ) . ', Bookings=' . count( $bookings ) );
+    // Cache for 30 minutes
+    set_transient( $transient_key, $result, 30 * MINUTE_IN_SECONDS );
 
     return $result;
 }

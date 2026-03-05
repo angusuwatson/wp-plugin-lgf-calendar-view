@@ -5,6 +5,31 @@
     overflow-x: auto;
 }
 
+/* Navigation controls */
+.lgf-calendar-view .calendar-nav {
+    margin-bottom: 12px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+.lgf-calendar-view .calendar-nav .button {
+    text-decoration: none;
+    padding: 4px 12px;
+    background: #f0f0f0;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    color: #0073aa;
+    font-size: 13px;
+}
+.lgf-calendar-view .calendar-nav .button:hover {
+    background: #e0e0e0;
+}
+.lgf-calendar-view .calendar-nav .current-month {
+    font-weight: bold;
+    font-size: 14px;
+    margin: 0 8px;
+}
+
 .lgf-calendar-view .calendar-grid {
     border-collapse: collapse;
     width: 100%;
