@@ -67,9 +67,10 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
     // Build transient key
     $transient_key = 'lgf_calendar_' . $year . '_' . $month;
     $cached = get_transient( $transient_key );
-    if ( false !== $cached ) {
-        return $cached;
-    }
+    // DEBUG: disable cache retrieval
+    // if ( false !== $cached ) {
+    //     return $cached;
+    // }
 
     $first_day = new DateTime( sprintf( '%04d-%02d-01', $year, $month ) );
     $days_in_month = intval( $first_day->format( 't' ) );
@@ -274,8 +275,8 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
         'days' => range(1, $days_in_month),
     ];
 
-    // Cache for 30 minutes
-    set_transient( $transient_key, $result, 30 * MINUTE_IN_SECONDS );
+    // DEBUG: disable caching to avoid stale data
+    // set_transient( $transient_key, $result, 30 * MINUTE_IN_SECONDS );
 
     return $result;
 }
