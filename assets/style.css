@@ -106,6 +106,7 @@
     padding: 2px;
     box-sizing: border-box;
     border-radius: 2px;
+    background: transparent;
 }
 
 /* Sticky first column (labels) */
