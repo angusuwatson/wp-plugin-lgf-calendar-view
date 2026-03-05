@@ -36,28 +36,22 @@ $get_entry = function( $room_id, $date_str ) use ( $matrix ) {
     <table class="wp-list-table widefat fixed striped calendar-grid">
         <thead>
             <tr>
-                <th class="room-header" rowspan="2"><?php esc_html_e( 'Room', 'lgf-calendar-view' ); ?></th>
+                <th class="room-header"><?php esc_html_e( 'Room', 'lgf-calendar-view' ); ?></th>
                 <?php foreach ( $days as $day ) :
                     $date_str = sprintf( '%04d-%02d-%02d', $year, $month, $day );
                     $day_of_week = date_i18n( 'D', strtotime( $date_str ) );
                     $header_class = in_array( $day_of_week, ['Sat','Sun'] ) ? 'weekend' : '';
                 ?>
-                    <th colspan="2" class="<?php echo $header_class; ?>">
+                    <th class="<?php echo $header_class; ?>">
                         <?php echo esc_html( $day . ' ' . $day_of_week ); ?>
                     </th>
-                <?php endforeach; ?>
-            </tr>
-            <tr>
-                <?php foreach ( $days as $day ) : ?>
-                    <th class="half-header-out"><?php esc_html_e( 'Out', 'lgf-calendar-view' ); ?></th>
-                    <th class="half-header-in"><?php esc_html_e( 'In', 'lgf-calendar-view' ); ?></th>
                 <?php endforeach; ?>
             </tr>
         </thead>
         <tbody>
             <?php if ( empty( $rooms ) ) : ?>
                 <tr>
-                    <td colspan="<?php echo 1 + $days_in_month * 2; ?>"><?php esc_html_e( 'No rooms found.', 'lgf-calendar-view' ); ?></td>
+                    <td colspan="<?php echo 1 + $days_in_month; ?>"><?php esc_html_e( 'No rooms found.', 'lgf-calendar-view' ); ?></td>
                 </tr>
             <?php else : ?>
                 <?php foreach ( $rooms as $room ) :
@@ -71,39 +65,18 @@ $get_entry = function( $room_id, $date_str ) use ( $matrix ) {
                             $has_booking = $entry && isset( $entry['booking'] ) && $entry['booking'];
                             $is_checkout = $entry && isset( $entry['is_checkout'] ) && $entry['is_checkout'];
                             $is_checkin = $entry && isset( $entry['is_checkin'] ) && $entry['is_checkin'];
+                            // Determine cell class: if has_booking, occupied; else free. Add modifiers for check-in/out edges.
+                            $cell_class = 'day-cell';
+                            if ($has_booking) {
+                                $cell_class .= ' occupied';
+                                if ($is_checkin) $cell_class .= ' checkin';
+                                if ($is_checkout) $cell_class .= ' checkout';
+                            } else {
+                                $cell_class .= ' free';
+                            }
                         ?>
-                            <td class="half half-out
-                                <?php
-                                // The room is occupied for this date if there's a booking object
-                                $occupied = $has_booking;
-                                if ( $occupied ) {
-                                    echo 'occupied';
-                                    if ( $is_checkout ) echo ' checkout';
-                                } else {
-                                    echo 'free';
-                                }
-                                if ( $has_booking ) echo ' has-booking';
-                                ?>">
-                                <?php if ( $occupied ) : ?>
-                                    <div class="status-badge status-<?php echo esc_attr( $entry['booking']->status ); ?>">
-                                        <?php echo esc_html( $entry['booking']->status ); ?>
-                                    </div>
-                                    <?php if ( ! empty( $entry['booking']->guest_name ) ) : ?>
-                                        <div class="guest-name"><?php echo esc_html( $entry['booking']->guest_name ); ?></div>
-                                    <?php endif; ?>
-                                <?php endif; ?>
-                            </td>
-                            <td class="half half-in
-                                <?php
-                                if ( $occupied ) {
-                                    echo 'occupied';
-                                    if ( $is_checkin ) echo ' checkin';
-                                } else {
-                                    echo 'free';
-                                }
-                                if ( $has_booking ) echo ' has-booking';
-                                ?>">
-                                <?php if ( $occupied ) : ?>
+                            <td class="<?php echo $cell_class; ?>">
+                                <?php if ( $has_booking ) : ?>
                                     <div class="status-badge status-<?php echo esc_attr( $entry['booking']->status ); ?>">
                                         <?php echo esc_html( $entry['booking']->status ); ?>
                                     </div>
