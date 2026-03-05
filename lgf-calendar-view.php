@@ -103,22 +103,14 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
         return $result;
     }
 
-    // Get bookings that overlap the month using Motopress's facade for consistency
-    $bookings_facade = mphb_bookings_facade();
-    $booked_days_all = $bookings_facade->getBookedDays(); // returns per room_type_id
-
-    // We need per-room and per-date. Let's build matrix from the raw overlap query (more precise)
-    // We'll still use direct query but ensure consistency with Motopress statuses
+    // We'll query bookings directly with the correct overlap condition
     global $wpdb;
     $mphb_bookings_table = $wpdb->prefix . 'mphb_bookings';
     $mphb_reserved_room_table = $wpdb->prefix . 'mphb_reserved_room';
     $mphb_postmeta = $wpdb->prefix . 'postmeta';
 
-    // Get booking statuses that lock rooms from Motopress itself
-    $locked_statuses = mphb_availability_facade()->getLockingStatuses(); // hopefully exists; if not, hardcode
-    if ( empty( $locked_statuses ) ) {
-        $locked_statuses = [ 'confirmed', 'pending', 'pending-user', 'pending-payment' ];
-    }
+    // Booking statuses that block rooms (from Motopress research)
+    $locked_statuses = [ 'confirmed', 'pending', 'pending-user', 'pending-payment' ];
 
     $bookings = $wpdb->get_results(
         $wpdb->prepare(
