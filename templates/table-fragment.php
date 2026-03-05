@@ -37,7 +37,7 @@ $days                 = $calendar_data['days'];
                         'label' => $room->title,
                         'class' => 'room-name-row',
                         'label_style' => 'background:#404040; color:#fff;',
-                        'cell_style' => "background:$color;",
+                        'cell_style' => 'background:#404040;',
                         'value' => null
                     ],
                     [

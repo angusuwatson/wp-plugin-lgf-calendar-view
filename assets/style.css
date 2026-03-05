@@ -47,17 +47,18 @@
     width: 100%;
     min-width: calc(100px * 15); /* adjust based on days */
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
-    font-size: 12px;
+    font-size: 10px;
     table-layout: fixed;
 }
 
 .lgf-calendar-view .calendar-grid th,
 .lgf-calendar-view .calendar-grid td {
     border: 1px solid #ccc;
-    padding: 4px 6px;
+    padding: 2px 4px;
     width: 100px;
     vertical-align: top;
-    height: 24px;
+    height: 13px;
+    line-height: 1.2;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -67,8 +68,8 @@
     background-color: #eaeaea;
     font-weight: 600;
     position: sticky;
-    top: 40px; /* below nav */
-    z-index: 2;
+    top: 45px; /* below nav */
+    z-index: 5;
 }
 
 /* Sticky first column (labels) */
