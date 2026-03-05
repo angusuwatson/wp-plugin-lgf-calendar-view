@@ -53,7 +53,10 @@
 
 .lgf-calendar-view .calendar-grid th,
 .lgf-calendar-view .calendar-grid td {
-    border: 1px solid #ccc;
+    border-left: 1px solid #ccc;
+    border-right: 1px solid #ccc;
+    border-top: none;
+    border-bottom: none;
     padding: 2px 4px;
     width: 100px;
     vertical-align: top;
@@ -68,8 +71,9 @@
     background-color: #eaeaea;
     font-weight: 600;
     position: sticky;
-    top: 45px; /* below nav */
-    z-index: 5;
+    top: 60px; /* below nav */
+    z-index: 10;
+    border-bottom: 1px solid #ccc; /* header bottom line */
 }
 
 /* Sticky first column (labels) */
@@ -81,20 +85,24 @@
     font-weight: 500;
 }
 
-/* Room name row label override */
+/* Room name row: entire row dark with white text, thick bottom border */
+.lgf-calendar-view .calendar-grid tr.room-name-row td {
+    background-color: #404040 !important;
+    color: #fff;
+    border-bottom: 3px solid black !important;
+}
 .lgf-calendar-view .calendar-grid tr.room-name-row td.label {
-    background-color: #404040;
+    background-color: #404040 !important;
     color: #fff;
 }
 
-/* Row colors: rows 2-6 have room color on day cells; commission row white */
-.lgf-calendar-view .calendar-grid tr.guest-row td,
-.lgf-calendar-view .calendar-grid tr.platform-row td,
-.lgf-calendar-view .calendar-grid tr.occupancy-row td,
-.lgf-calendar-view .calendar-grid tr.dinner-row td,
+/* Tarif row: top thin black, bottom thick black */
 .lgf-calendar-view .calendar-grid tr.tarif-row td {
-    /* room color applied inline per row */
+    border-top: 1px solid black;
+    border-bottom: 3px solid black;
 }
+
+/* Commission row white background */
 .lgf-calendar-view .calendar-grid tr.commission-row td {
     background-color: #fff !important;
 }
