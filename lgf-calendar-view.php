@@ -102,13 +102,13 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
     $room_ids = get_posts( $args );
     error_log( 'LGF Calendar DEBUG: get_posts returned count=' . count( $room_ids ) . ' ids=' . implode( ',', $room_ids ) );
 
-    // Fallback: if get_posts returns empty, try direct DB query (bypass filters)
-    if ( empty( $room_ids ) ) {
-        error_log( 'LGF Calendar DEBUG: get_posts returned empty, trying direct DB query fallback' );
+    // Fallback only if not language-filtered: language-filtered empty likely means no rooms for that language
+    if ( empty( $room_ids ) && ! $isLanguageFiltered ) {
+        error_log( 'LGF Calendar DEBUG: get_posts returned empty and not language-filtered, trying direct DB query fallback' );
         global $wpdb;
         $room_ids = $wpdb->get_col(
             $wpdb->prepare(
-                "SELECT ID FROM {$wpdb->posts} WHERE post_type = %s AND post_status = %s ORDER BY ID",
+                "SELECT ID FROM {$wpdb->posts} WHERE post_type = %s AND post_status = %s ORDER BY title",
                 'mphb_room',
                 'publish'
             )
