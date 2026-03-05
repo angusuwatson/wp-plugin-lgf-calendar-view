@@ -1,4 +1,5 @@
 <?php
+error_log( 'LGF Template: included. Rooms count=' . count( $calendar_data['rooms'] ) );
 /* @var $calendar_data array */
 $rooms                = $calendar_data['rooms'];
 $matrix               = $calendar_data['matrix'];
