@@ -289,7 +289,10 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
         'days' => range(1, $days_in_month),
     ];
 
-    set_transient( $transient_key, $result, 30 * MINUTE_IN_SECONDS );
+    // DEBUG: disable caching to see fresh data
+    // set_transient( $transient_key, $result, 30 * MINUTE_IN_SECONDS );
+
+    error_log( 'LGF Calendar DEBUG: Rooms count=' . count( $rooms ) . ', Bookings count=' . count( $bookings ) . ', Matrix rooms=' . count( $matrix ) );
 
     return $result;
 }
