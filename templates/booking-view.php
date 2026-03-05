@@ -57,42 +57,42 @@ $today_year = date('Y');
                             [
                                 'label' => 'Guest',
                                 'class' => 'guest-row',
-                                'label_style' => 'border-right: 1px solid black;',
+                                'label_style' => "background:$color; border-right: 1px solid black;",
                                 'cell_style' => "background:$color;",
                                 'value_fn' => function($b) { return $b->guest_name ?? ''; }
                             ],
                             [
                                 'label' => 'Platform',
                                 'class' => 'platform-row',
-                                'label_style' => 'border-right: 1px solid black;',
+                                'label_style' => "background:$color; border-right: 1px solid black;",
                                 'cell_style' => "background:$color;",
                                 'value_fn' => function($b) { return $b->platform_label ?? ''; }
                             ],
                             [
                                 'label' => 'Occupancy',
                                 'class' => 'occupancy-row',
-                                'label_style' => 'border-right: 1px solid black;',
+                                'label_style' => "background:$color; border-right: 1px solid black;",
                                 'cell_style' => "background:$color;",
                                 'value_fn' => function($b) { return $b->occupancy_str ?? ''; }
                             ],
                             [
                                 'label' => 'Dinner',
                                 'class' => 'dinner-row',
-                                'label_style' => 'border-right: 1px solid black;',
+                                'label_style' => "background:$color; border-right: 1px solid black;",
                                 'cell_style' => "background:$color;",
                                 'value_fn' => function($b) { return $b->dinner ?? ''; }
                             ],
                             [
                                 'label' => 'Tarif',
                                 'class' => 'tarif-row',
-                                'label_style' => 'border-right: 1px solid black;',
+                                'label_style' => "background:$color; border-right: 1px solid black;",
                                 'cell_style' => "background:$color;",
                                 'value_fn' => function($b) { return $b->tarif !== '' ? number_format($b->tarif, 2) : ''; }
                             ],
                             [
                                 'label' => 'Commission',
                                 'class' => 'commission-row',
-                                'label_style' => 'border-right: 1px solid black;',
+                                'label_style' => 'background:#fff; border-right: 1px solid black;',
                                 'cell_style' => 'background:#fff;',
                                 'value_fn' => function($b) { return $b->commission !== '' ? number_format($b->commission, 2) : ''; }
                             ],
