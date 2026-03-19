@@ -9,12 +9,11 @@
         var $container = $('.lgf-calendar-container');
         if (!$container.length) return;
 
-        var $tableWrapper = $container.find('.lgf-calendar-view');
         var restUrl = lgfCalendar.restUrl;
         var nonce = lgfCalendar.nonce;
 
         // Intercept nav clicks
-        $container.on('click', '.calendar-nav .button', function(e) {
+        $container.on('click', '.calendar-nav .button, .calendar-month-tab', function(e) {
             e.preventDefault();
             var href = $(this).attr('href');
             if (!href) return;
@@ -36,7 +35,7 @@
                 method: 'GET',
                 beforeSend: function(xhr) {
                     xhr.setRequestHeader('X-WP-Nonce', nonce);
-                    $tableWrapper.addClass('loading');
+                    $container.addClass('loading');
                 },
                 data: {
                     month: month,
@@ -45,7 +44,8 @@
                 success: function(response) {
                     console.log('AJAX response:', response);
                     if (response && response.html) {
-                        $tableWrapper.html(response.html);
+                        $container.replaceWith(response.html);
+                        $container = $('.lgf-calendar-container');
                         if (pushState) {
                             var newUrl = new URL(window.location);
                             newUrl.searchParams.set('month', month);
@@ -62,7 +62,7 @@
                     alert('Error loading calendar (status: ' + status + '). See console for details.');
                 },
                 complete: function() {
-                    $tableWrapper.removeClass('loading');
+                    $container.removeClass('loading');
                 }
             });
         }

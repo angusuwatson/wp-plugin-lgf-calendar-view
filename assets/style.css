@@ -2,150 +2,196 @@
 
 .lgf-calendar-container {
     margin: 1em 0;
+    background: #fff;
 }
 
-/* Navigation controls */
+.lgf-calendar-container.loading {
+    opacity: 0.7;
+    transition: opacity 0.2s ease;
+}
+
+.calendar-month-tabs {
+    display: flex;
+    gap: 0;
+    overflow-x: auto;
+    background: #1f1d1c;
+    border-radius: 4px 4px 0 0;
+}
+
+.calendar-month-tab {
+    color: #f1f1f1;
+    text-decoration: none;
+    padding: 12px 18px;
+    font-weight: 600;
+    min-width: 90px;
+    text-align: center;
+    border-bottom: 3px solid transparent;
+    flex: 1 0 auto;
+}
+
+.calendar-month-tab:hover {
+    background: #2b2928;
+    color: #fff;
+}
+
+.calendar-month-tab.is-current {
+    border-bottom-color: #f3f3f3;
+}
+
 .lgf-calendar-container .calendar-nav {
-    margin-bottom: 12px;
+    margin-bottom: 0;
     display: flex;
     gap: 8px;
     align-items: center;
     flex-wrap: wrap;
-    position: sticky;
-    top: 0;
-    background: #fff;
-    padding: 8px 0;
+    background: #2d2b2a;
+    padding: 8px 10px;
     z-index: 10;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid #111;
 }
+
 .lgf-calendar-container .calendar-nav .button {
     text-decoration: none;
-    padding: 6px 14px;
+    padding: 6px 12px;
     background: #f0f0f0;
     border: 1px solid #ccc;
     border-radius: 3px;
-    color: #0073aa;
+    color: #222;
     font-size: 13px;
     cursor: pointer;
 }
+
 .lgf-calendar-container .calendar-nav .button:hover {
     background: #e0e0e0;
 }
+
 .lgf-calendar-container .calendar-nav .current-month {
-    font-weight: bold;
+    font-weight: 700;
     font-size: 15px;
-    margin: 0 8px;
+    margin-left: auto;
+    color: #fff;
 }
 
-/* Calendar grid scroll area */
 .lgf-calendar-view {
     overflow-x: auto;
+    background: #fff;
 }
 
 .lgf-calendar-view .calendar-grid {
     border-collapse: collapse;
     width: 100%;
-    min-width: calc(100px * 15); /* adjust based on days */
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
-    font-size: 10px;
+    min-width: 2600px;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 11px;
     table-layout: fixed;
 }
 
 .lgf-calendar-view .calendar-grid th,
 .lgf-calendar-view .calendar-grid td {
-    border-left: none;
-    border-right: none;
-    border-top: none;
-    border-bottom: none;
+    border: 1px solid #3b3b3b;
     padding: 2px 4px;
-    width: 100px;
-    vertical-align: top;
-    height: 13px;
-    line-height: 1.2;
+    width: 110px;
+    vertical-align: middle;
+    height: 24px;
+    line-height: 1.15;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-/* Header row (day numbers) */
-.lgf-calendar-view .calendar-grid tr.header-row th {
-    background-color: #eaeaea;
-    font-weight: 600;
+.lgf-calendar-view .calendar-grid th {
+    background: #fff;
     text-align: center;
-    border-bottom: 1px solid #ccc;
-}
-.lgf-calendar-view .calendar-grid tr.header-row th.label {
-    background-color: #eaeaea;
-}
-
-/* Day-of-week row */
-.lgf-calendar-view .calendar-grid tr.dow-row th {
-    background-color: #f0f0f0;
     font-weight: 500;
-    text-align: center;
-    border-bottom: 1px solid #ccc;
-}
-.lgf-calendar-view .calendar-grid tr.dow-row th.label {
-    background-color: #eaeaea;
 }
 
-/* Notes row */
-.lgf-calendar-view .calendar-grid tr.notes-row th {
-    background-color: #eaeaea; /* blend with header */
-    border-bottom: 2px solid #404040;
-    padding: 2px;
-}
-.lgf-calendar-view .calendar-grid tr.notes-row th.label {
-    background-color: #eaeaea;
-    border-right: 1px solid black;
-}
-.lgf-calendar-view .calendar-grid .note-input {
-    width: 100%;
-    border: 1px solid #ccc;
-    font-size: 10px;
-    padding: 2px;
-    box-sizing: border-box;
-    border-radius: 2px;
-    background: transparent;
-}
-
-/* Sticky first column (labels) */
-.lgf-calendar-view .calendar-grid td.label {
+.lgf-calendar-view .calendar-grid .sticky-col {
     position: sticky;
     left: 0;
-    z-index: 5;
-    border-right: 1px solid black; /* thin vertical border */
+    z-index: 3;
+    min-width: 220px;
+    width: 220px;
+    max-width: 220px;
+    border-right: 1px solid #000;
 }
 
-/* Room name row: entire row dark with white text, thick bottom border */
+.lgf-calendar-view .calendar-grid tr.header-row th {
+    background: #fff;
+    font-weight: 500;
+}
+
+.lgf-calendar-view .calendar-grid tr.header-row th strong {
+    font-size: 18px;
+    display: inline-block;
+    margin-top: 3px;
+    color: #c41717;
+}
+
+.lgf-calendar-view .calendar-grid tr.dow-row th {
+    background: #fff;
+    font-weight: 400;
+}
+
 .lgf-calendar-view .calendar-grid tr.room-name-row td {
-    background-color: #404040 !important;
+    background: #404040 !important;
     color: #fff;
-    border-bottom: 3px solid black !important;
-}
-.lgf-calendar-view .calendar-grid tr.room-name-row td.label {
-    background-color: #404040 !important;
-    color: #fff;
+    font-weight: 700;
+    border-top: 3px solid #000;
 }
 
-/* Tarif row: top thin black, bottom thick black, right-aligned */
+.lgf-calendar-view .calendar-grid tr.room-name-row td.sticky-col {
+    z-index: 4;
+}
+
 .lgf-calendar-view .calendar-grid tr.tarif-row td {
-    border-top: 1px solid black;
-    border-bottom: 3px solid black;
+    font-weight: 700;
+    border-bottom: 2px solid #000;
+}
+
+.lgf-calendar-view .calendar-grid tr.room-gap-row td {
+    background: #fff;
+    height: 12px;
+    border-left: 1px solid #fff;
+    border-right: 1px solid #fff;
+}
+
+.lgf-calendar-view .calendar-grid tr.room-gap-row .gap-label {
+    background: #fff;
+    border-right: 1px solid #fff;
+}
+
+.lgf-calendar-view .calendar-grid tr.summary-row td {
+    background: #f7f7f7;
+}
+
+.lgf-calendar-view .calendar-grid tr.summary-row .sticky-col {
+    background: #f0f0f0;
+    font-weight: 700;
+}
+
+.lgf-calendar-view .calendar-grid tr.summary-income-day td,
+.lgf-calendar-view .calendar-grid tr.summary-income-accumulated td,
+.lgf-calendar-view .calendar-grid tr.summary-booking-payment td,
+.lgf-calendar-view .calendar-grid tr.summary-booking-accumulated td {
     text-align: right;
 }
 
-/* Commission row white background, right-aligned */
-.lgf-calendar-view .calendar-grid tr.commission-row td {
-    background-color: #fff !important;
-    text-align: right;
-}
-
-/* Responsive */
 @media (max-width: 768px) {
+    .calendar-month-tab {
+        min-width: 72px;
+        padding: 10px 12px;
+    }
+
     .lgf-calendar-view .calendar-grid th,
     .lgf-calendar-view .calendar-grid td {
-        padding: 3px 4px;
-        font-size: 11px;
+        width: 84px;
+        font-size: 10px;
+        height: 22px;
+    }
+
+    .lgf-calendar-view .calendar-grid .sticky-col {
+        min-width: 170px;
+        width: 170px;
+        max-width: 170px;
     }
 }

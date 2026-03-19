@@ -6,49 +6,48 @@ $month = $calendar_data['month'];
 $year = $calendar_data['year'];
 $days_in_month = $calendar_data['days_in_month'];
 $days = $calendar_data['days'];
-
-// Nav URLs
-$prev_month = $month - 1;
-$prev_year = $year;
-if ($prev_month < 1) { $prev_month = 12; $prev_year--; }
-$next_month = $month + 1;
-$next_year = $year;
-if ($next_month > 12) { $next_month = 1; $next_year++; }
-$today_month = date('n');
-$today_year = date('Y');
+$summary = lgf_calendar_view_build_daily_summary( $calendar_data );
+$month_tabs = lgf_calendar_view_get_month_tabs( $month, $year );
 ?>
 <div class="lgf-calendar-container">
+    <div class="calendar-month-tabs" role="tablist" aria-label="Calendar months">
+        <?php foreach ( $month_tabs as $tab ) : ?>
+            <a
+                class="calendar-month-tab<?php echo $tab['current'] ? ' is-current' : ''; ?>"
+                href="<?php echo esc_url( add_query_arg( [ 'month' => $tab['month'], 'year' => $tab['year'] ] ) ); ?>"
+                data-month="<?php echo esc_attr( $tab['month'] ); ?>"
+                data-year="<?php echo esc_attr( $tab['year'] ); ?>"
+            ><?php echo esc_html( $tab['label'] ); ?></a>
+        <?php endforeach; ?>
+    </div>
+
     <div class="calendar-nav">
-        <a class="button" href="<?php echo esc_url( add_query_arg( ['month' => $prev_month, 'year' => $prev_year] ) ); ?>">&laquo; <?php esc_html_e( 'Previous', 'lgf-calendar-view' ); ?></a>
-        <span class="current-month"><?php echo esc_html( date_i18n( 'F Y', mktime(0,0,0,$month,1,$year) ) ); ?></span>
-        <a class="button" href="<?php echo esc_url( add_query_arg( ['month' => $next_month, 'year' => $next_year] ) ); ?>"><?php esc_html_e( 'Next', 'lgf-calendar-view' ); ?> &raquo;</a>
-        <?php if ( $month != $today_month || $year != $today_year ): ?>
-            <a class="button" href="<?php echo esc_url( add_query_arg( ['month' => $today_month, 'year' => $today_year] ) ); ?>"><?php esc_html_e( 'Today', 'lgf-calendar-view' ); ?></a>
-        <?php endif; ?>
+        <?php
+        $prev = new DateTime( sprintf( '%04d-%02d-01', $year, $month ) );
+        $prev->modify( '-1 month' );
+        $next = new DateTime( sprintf( '%04d-%02d-01', $year, $month ) );
+        $next->modify( '+1 month' );
+        ?>
+        <a class="button" href="<?php echo esc_url( add_query_arg( [ 'month' => $prev->format( 'n' ), 'year' => $prev->format( 'Y' ) ] ) ); ?>">&laquo; <?php esc_html_e( 'Previous', 'lgf-calendar-view' ); ?></a>
+        <span class="current-month"><?php echo esc_html( date_i18n( 'F Y', mktime( 0, 0, 0, $month, 1, $year ) ) ); ?></span>
+        <a class="button" href="<?php echo esc_url( add_query_arg( [ 'month' => $next->format( 'n' ), 'year' => $next->format( 'Y' ) ] ) ); ?>"><?php esc_html_e( 'Next', 'lgf-calendar-view' ); ?> &raquo;</a>
     </div>
 
     <div class="lgf-calendar-view">
         <table class="wp-list-table widefat fixed striped calendar-grid">
             <thead>
                 <tr class="header-row">
-                    <th class="label" style="position: sticky; left: 0; background:#eaeaea; border-right: 1px solid black;"></th>
+                    <th class="label sticky-col"></th>
                     <?php foreach ( $days as $day ) : ?>
-                        <th><?php echo esc_html( $day ); ?></th>
+                        <th><?php echo esc_html( date_i18n( 'F', mktime( 0, 0, 0, $month, $day, $year ) ) ); ?><br><strong><?php echo esc_html( $day ); ?></strong></th>
                     <?php endforeach; ?>
                 </tr>
                 <tr class="dow-row">
-                    <th class="label" style="position: sticky; left: 0; background:#eaeaea; border-right: 1px solid black;"></th>
+                    <th class="label sticky-col"></th>
                     <?php foreach ( $days as $day ) :
                         $date_str = sprintf( '%04d-%02d-%02d', $year, $month, $day );
-                        $dow = date_i18n( 'l', strtotime( $date_str ) );
                     ?>
-                        <th><?php echo esc_html( $dow ); ?></th>
-                    <?php endforeach; ?>
-                </tr>
-                <tr class="notes-row">
-                    <th class="label" style="position: sticky; left: 0; background:#eaeaea; border-right: 1px solid black;">Notes</th>
-                    <?php foreach ( $days as $day ) : ?>
-                        <th><input type="text" class="note-input" data-date="<?php echo esc_attr( sprintf( '%04d-%02d-%02d', $year, $month, $day ) ); ?>" value="" /></th>
+                        <th><?php echo esc_html( date_i18n( 'l', strtotime( $date_str ) ) ); ?></th>
                     <?php endforeach; ?>
                 </tr>
             </thead>
@@ -58,93 +57,111 @@ $today_year = date('Y');
                         <td colspan="<?php echo 1 + $days_in_month; ?>"><?php esc_html_e( 'No rooms found.', 'lgf-calendar-view' ); ?></td>
                     </tr>
                 <?php else : ?>
-                    <?php foreach ( $rooms as $room ) :
+                    <?php foreach ( $rooms as $index => $room ) :
                         $room_id = $room->id;
                         $color = $room->color ?? '#ccc';
+                        $room_number = $index + 1;
                         $rows = [
                             [
-                                'label' => $room->title,
+                                'label' => $room_number . ' - ' . $room->title,
                                 'class' => 'room-name-row',
-                                'label_style' => 'background:#404040; color:#fff; border-right: 1px solid black;',
+                                'label_style' => 'background:#404040; color:#fff;',
                                 'cell_style' => 'background:#404040;',
-                                'value' => null
                             ],
                             [
-                                'label' => 'Guest',
+                                'label' => 'Name',
                                 'class' => 'guest-row',
-                                'label_style' => "background:$color; border-right: 1px solid black;",
+                                'label_style' => "background:$color;",
                                 'cell_style' => "background:$color;",
-                                'value_fn' => function($b) { return $b->guest_name ?? ''; }
+                                'value_fn' => function( $b ) { return $b->guest_name ?? ''; },
                             ],
                             [
-                                'label' => 'Platform',
+                                'label' => 'Telephone Number',
                                 'class' => 'platform-row',
-                                'label_style' => "background:$color; border-right: 1px solid black;",
+                                'label_style' => "background:$color;",
                                 'cell_style' => "background:$color;",
-                                'value_fn' => function($b) { return $b->platform_label ?? ''; }
+                                'value_fn' => function( $b ) { return ''; },
                             ],
                             [
                                 'label' => 'Occupancy',
                                 'class' => 'occupancy-row',
-                                'label_style' => "background:$color; border-right: 1px solid black;",
+                                'label_style' => "background:$color;",
                                 'cell_style' => "background:$color;",
-                                'value_fn' => function($b) { return $b->occupancy_str ?? ''; }
+                                'value_fn' => function( $b ) { return $b->occupancy_str ?? ''; },
                             ],
                             [
-                                'label' => 'Dinner',
+                                'label' => "Table d'hôte",
                                 'class' => 'dinner-row',
-                                'label_style' => "background:$color; border-right: 1px solid black;",
+                                'label_style' => "background:$color;",
                                 'cell_style' => "background:$color;",
-                                'value_fn' => function($b) { return $b->dinner ?? ''; }
+                                'value_fn' => function( $b ) { return ! empty( $b->dinner ) ? $b->dinner : ''; },
                             ],
                             [
                                 'label' => 'Tarif',
                                 'class' => 'tarif-row',
-                                'label_style' => "background:$color; border-right: 1px solid black; text-align: right;",
-                                'cell_style' => "background:$color; text-align: right;",
-                                'value_fn' => function($b) {
+                                'label_style' => "background:$color; text-align:right;",
+                                'cell_style' => "background:$color; text-align:right;",
+                                'value_fn' => function( $b ) {
                                     if ( $b->tarif !== '' && $b->tarif !== null ) {
-                                        return number_format( $b->tarif, 2, ',', '' ) . '€';
+                                        return number_format( (float) $b->tarif, 2, ',', ' ' ) . ' €';
                                     }
                                     return '';
-                                }
-                            ],
-                            [
-                                'label' => 'Commission',
-                                'class' => 'commission-row',
-                                'label_style' => 'background:#fff; border-right: 1px solid black; text-align: right;',
-                                'cell_style' => 'background:#fff;',
-                                'value_fn' => function($b) {
-                                    if ( $b->commission !== '' && $b->commission !== null ) {
-                                        return number_format( $b->commission, 2, ',', '' ) . '€';
-                                    }
-                                    return '';
-                                }
+                                },
                             ],
                         ];
-                        foreach ($rows as $row):
+
+                        foreach ( $rows as $row ) :
                     ?>
-                        <tr class="<?php echo $row['class']; ?>">
-                            <td class="label" style="position: sticky; left: 0; <?php echo $row['label_style']; ?>"><?php echo esc_html($row['label']); ?></td>
+                        <tr class="<?php echo esc_attr( $row['class'] ); ?>">
+                            <td class="label sticky-col" style="<?php echo esc_attr( $row['label_style'] ); ?>"><?php echo esc_html( $row['label'] ); ?></td>
                             <?php foreach ( $days as $day ) :
                                 $date_str = sprintf( '%04d-%02d-%02d', $year, $month, $day );
                                 $entry = $matrix[ $room_id ][ $date_str ] ?? null;
-                                $booking = $entry && isset( $entry['booking'] ) && $entry['booking'] ? $entry['booking'] : null;
+                                $booking = $entry['booking'] ?? null;
                                 $value = '';
-                                if ($booking && isset($row['value_fn'])) {
-                                    $value = $row['value_fn']($booking);
+                                if ( $booking && isset( $row['value_fn'] ) ) {
+                                    $value = $row['value_fn']( $booking );
                                 }
                             ?>
-                                <td style="<?php echo esc_attr($row['cell_style']); ?>">
-                                    <?php echo esc_html( $value ); ?>
-                                </td>
+                                <td style="<?php echo esc_attr( $row['cell_style'] ); ?>"><?php echo esc_html( $value ); ?></td>
                             <?php endforeach; ?>
                         </tr>
-                    <?php
-                        endforeach; // rows
-                        endforeach; // rooms
-                    ?>
+                    <?php endforeach; ?>
+                    <tr class="room-gap-row">
+                        <td class="sticky-col gap-label"></td>
+                        <?php foreach ( $days as $day ) : ?>
+                            <td></td>
+                        <?php endforeach; ?>
+                    </tr>
+                    <?php endforeach; ?>
                 <?php endif; ?>
+
+                <?php
+                $footer_rows = [
+                    'Income Day' => 'income_day',
+                    'Income Accumulated' => 'income_accumulated',
+                    "Table d'hôtes" => 'table_dhotes',
+                    'Rooms' => 'rooms',
+                    'TOURIST TAX Adults' => 'tourist_tax_adults',
+                    'Children' => 'tourist_tax_children',
+                    'Payment Booking.com' => 'booking_payment',
+                    'Accumulated Booking.com' => 'booking_accumulated',
+                ];
+                foreach ( $footer_rows as $label => $key ) :
+                ?>
+                    <tr class="summary-row summary-<?php echo esc_attr( sanitize_title( $key ) ); ?>">
+                        <td class="label sticky-col"><?php echo esc_html( $label ); ?></td>
+                        <?php foreach ( $days as $day ) :
+                            $value = $summary[ $day ][ $key ] ?? '';
+                            $display = $value;
+                            if ( in_array( $key, [ 'income_day', 'income_accumulated', 'booking_payment', 'booking_accumulated' ], true ) ) {
+                                $display = number_format( (float) $value, 2, ',', ' ' ) . ' €';
+                            }
+                        ?>
+                            <td><?php echo esc_html( (string) $display ); ?></td>
+                        <?php endforeach; ?>
+                    </tr>
+                <?php endforeach; ?>
             </tbody>
         </table>
     </div>

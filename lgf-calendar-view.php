@@ -28,17 +28,20 @@ function lgf_calendar_view_check_dependency() {
 // Enqueue scripts and styles
 add_action( 'wp_enqueue_scripts', 'lgf_calendar_view_enqueue_assets' );
 function lgf_calendar_view_enqueue_assets() {
-    if ( has_shortcode( get_post()->post_content ?? '', 'lgf_calendar_view' ) ) {
-        wp_register_style( 'lgf-calendar-view', plugin_dir_url( __FILE__ ) . 'assets/style.css' );
-        wp_enqueue_style( 'lgf-calendar-view' );
-
-        wp_register_script( 'lgf-calendar-view', plugin_dir_url( __FILE__ ) . 'assets/calendar-navigation.js', [ 'jquery' ], '1.0', true );
-        wp_localize_script( 'lgf-calendar-view', 'lgfCalendar', [
-            'restUrl' => esc_url_raw( rest_url( 'lgf-calendar/v1/table' ) ),
-            'nonce'   => wp_create_nonce( 'wp_rest' ),
-        ] );
-        wp_enqueue_script( 'lgf-calendar-view' );
+    $post = get_post();
+    if ( ! $post || ! has_shortcode( $post->post_content, 'lgf_calendar_view' ) ) {
+        return;
     }
+
+    wp_register_style( 'lgf-calendar-view', plugin_dir_url( __FILE__ ) . 'assets/style.css', [], '1.4' );
+    wp_enqueue_style( 'lgf-calendar-view' );
+
+    wp_register_script( 'lgf-calendar-view', plugin_dir_url( __FILE__ ) . 'assets/calendar-navigation.js', [ 'jquery' ], '1.1', true );
+    wp_localize_script( 'lgf-calendar-view', 'lgfCalendar', [
+        'restUrl' => esc_url_raw( rest_url( 'lgf-calendar/v1/table' ) ),
+        'nonce'   => wp_create_nonce( 'wp_rest' ),
+    ] );
+    wp_enqueue_script( 'lgf-calendar-view' );
 }
 
 /**
@@ -102,6 +105,9 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
     $room_ids = get_posts( $args );
     error_log( 'LGF Calendar DEBUG: get_posts returned count=' . count( $room_ids ) . ' ids=' . implode( ',', $room_ids ) );
 
+    // Determine if we're filtering by language (Polylang/WPML)
+    $isLanguageFiltered = ! empty( $args['lang'] );
+
     // Fallback only if not language-filtered: language-filtered empty likely means no rooms for that language
     if ( empty( $room_ids ) && ! $isLanguageFiltered ) {
         error_log( 'LGF Calendar DEBUG: get_posts returned empty and not language-filtered, trying direct DB query fallback' );
@@ -115,9 +121,6 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
         );
         error_log( 'LGF Calendar DEBUG: fallback DB query returned count=' . count( $room_ids ) . ' ids=' . implode( ',', $room_ids ) );
     }
-
-    // Determine if we're filtering by language (Polylang/WPML)
-    $isLanguageFiltered = ! empty( $args['lang'] );
 
     // Convert to objects with id and title for consistency
     $rooms = array_map( function( $room_id ) use ( $isLanguageFiltered ) {
@@ -134,19 +137,6 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
 
     // Debug: log how many rooms we fetched
     error_log( 'LGF Calendar: Fetched ' . count( $rooms ) . ' rooms. IDs: ' . implode( ',', wp_list_pluck( $rooms, 'id' ) ) );
-
-    // Assign theme colors per room (1-indexed)
-    $room_colors = [
-        1 => '#cc99ff',
-        2 => '#b4c7e7',
-        3 => '#a9d18e',
-        4 => '#ffe699',
-        5 => '#f4b183',
-    ];
-    foreach ( $rooms as $idx => $room ) {
-        $color = $room_colors[ $idx + 1 ] ?? '#cccccc';
-        $rooms[ $idx ]->color = $color;
-    }
 
     // Assign theme colors per room (1-indexed)
     $room_colors = [
@@ -359,8 +349,93 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
     return $result;
 }
 
+function lgf_calendar_view_get_month_tabs( $month, $year ) {
+    $tabs = [];
+
+    for ( $offset = -2; $offset <= 2; $offset++ ) {
+        $date = new DateTime( sprintf( '%04d-%02d-01', $year, $month ) );
+        if ( 0 !== $offset ) {
+            $date->modify( sprintf( '%+d month', $offset ) );
+        }
+
+        $tabs[] = [
+            'month'   => (int) $date->format( 'n' ),
+            'year'    => (int) $date->format( 'Y' ),
+            'label'   => date_i18n( 'M', $date->getTimestamp() ),
+            'current' => (int) $date->format( 'n' ) === (int) $month && (int) $date->format( 'Y' ) === (int) $year,
+        ];
+    }
+
+    return $tabs;
+}
+
+function lgf_calendar_view_build_daily_summary( $calendar_data ) {
+    $summary = [];
+
+    foreach ( $calendar_data['days'] as $day ) {
+        $date_str = sprintf( '%04d-%02d-%02d', $calendar_data['year'], $calendar_data['month'], $day );
+        $income_day = 0.0;
+        $commission_day = 0.0;
+        $rooms_count = 0;
+        $table_dhotes = 0;
+        $tax_adults = 0;
+        $tax_children = 0;
+        $seen_bookings = [];
+
+        foreach ( $calendar_data['matrix'] as $room_matrix ) {
+            if ( empty( $room_matrix[ $date_str ]['booking'] ) ) {
+                continue;
+            }
+
+            $booking = $room_matrix[ $date_str ]['booking'];
+            $booking_id = (int) $booking->id;
+
+            if ( isset( $seen_bookings[ $booking_id ] ) ) {
+                continue;
+            }
+
+            $seen_bookings[ $booking_id ] = true;
+            $rooms_count++;
+            $table_dhotes += ! empty( $booking->dinner ) ? 1 : 0;
+            $tax_adults += (int) ( $booking->adults ?? 0 );
+            $tax_children += (int) ( $booking->children ?? 0 );
+
+            $nights = max( 1, (int) round( ( strtotime( $booking->check_out ) - strtotime( $booking->check_in ) ) / DAY_IN_SECONDS ) );
+            $income_day += (float) ( $booking->tarif ?? 0 ) / $nights;
+            $commission_day += (float) ( $booking->commission ?? 0 ) / $nights;
+        }
+
+        $previous_income = $day > 1 ? ( $summary[ $day - 1 ]['income_accumulated'] ?? 0 ) : 0;
+        $previous_commission = $day > 1 ? ( $summary[ $day - 1 ]['booking_accumulated'] ?? 0 ) : 0;
+
+        $summary[ $day ] = [
+            'income_day' => $income_day,
+            'income_accumulated' => $previous_income + $income_day,
+            'table_dhotes' => $table_dhotes,
+            'rooms' => $rooms_count,
+            'tourist_tax_adults' => $tax_adults,
+            'tourist_tax_children' => $tax_children,
+            'booking_payment' => $commission_day,
+            'booking_accumulated' => $previous_commission + $commission_day,
+        ];
+    }
+
+    return $summary;
+}
+
 // Shortcode to display the calendar view
 add_shortcode( 'lgf_calendar_view', 'lgf_calendar_view_shortcode' );
+
+function lgf_calendar_view_render_calendar( $calendar_data ) {
+    $template = locate_template( 'lgf-calendar-view/booking-view.php' );
+    if ( ! $template ) {
+        $template = plugin_dir_path( __FILE__ ) . 'templates/booking-view.php';
+    }
+
+    ob_start();
+    include $template;
+    return ob_get_clean();
+}
 
 function lgf_calendar_view_shortcode( $atts ) {
     $atts = shortcode_atts( [
@@ -373,16 +448,7 @@ function lgf_calendar_view_shortcode( $atts ) {
 
     $calendar_data = lgf_calendar_view_get_calendar_data( $month, $year );
 
-    // Allow theme override via template hierarchy
-    $template = locate_template( 'lgf-calendar-view/booking-view.php' );
-    if ( ! $template ) {
-        $template = plugin_dir_path( __FILE__ ) . 'templates/booking-view.php';
-    }
-
-    // Full output (nav + table)
-    ob_start();
-    include $template;
-    return ob_get_clean();
+    return lgf_calendar_view_render_calendar( $calendar_data );
 }
 
 /**
@@ -422,15 +488,7 @@ function lgf_calendar_rest_table( WP_REST_Request $request ) {
 
     error_log( 'LGF REST: rooms count=' . count( $calendar_data['rooms'] ) . ', matrix rooms=' . count( $calendar_data['matrix'] ) );
 
-    // Render only the table part (include a minimal template that outputs just the table)
-    $template = plugin_dir_path( __FILE__ ) . 'templates/table-fragment.php';
-    if ( ! file_exists( $template ) ) {
-        return new WP_Error( 'template_missing', 'Table fragment template not found', [ 'status' => 500 ] );
-    }
-
-    ob_start();
-    include $template;
-    $html = ob_get_clean();
+    $html = lgf_calendar_view_render_calendar( $calendar_data );
 
     return rest_ensure_response( [ 'html' => $html ] );
 }
