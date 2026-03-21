@@ -55,6 +55,24 @@ $month_tabs = lgf_calendar_view_get_month_tabs( $month, $year );
                 </tr>
             </thead>
             <tbody>
+                <tr class="notes-row">
+                    <td class="label sticky-col notes-label-cell"><span class="room-label-text"><?php esc_html_e( 'Notes', 'lgf-calendar-view' ); ?></span></td>
+                    <?php foreach ( $days as $day ) :
+                        $note_date = sprintf( '%04d-%02d-%02d', $year, $month, $day );
+                    ?>
+                        <td class="calendar-cell notes-cell">
+                            <input
+                                type="text"
+                                class="calendar-note-input"
+                                data-note-date="<?php echo esc_attr( $note_date ); ?>"
+                                data-note-month="<?php echo esc_attr( $month ); ?>"
+                                data-note-year="<?php echo esc_attr( $year ); ?>"
+                                value=""
+                                aria-label="<?php echo esc_attr( sprintf( __( 'Note for %s', 'lgf-calendar-view' ), $note_date ) ); ?>"
+                            />
+                        </td>
+                    <?php endforeach; ?>
+                </tr>
                 <?php if ( empty( $rooms ) ) : ?>
                     <tr>
                         <td colspan="<?php echo esc_attr( 1 + $days_in_month ); ?>"><?php esc_html_e( 'No rooms found.', 'lgf-calendar-view' ); ?></td>
@@ -102,6 +120,17 @@ $month_tabs = lgf_calendar_view_get_month_tabs( $month, $year );
                                 'value_fn' => function( $b ) {
                                     if ( isset( $b->tarif ) && '' !== $b->tarif && null !== $b->tarif ) {
                                         return number_format( (float) $b->tarif, 2, ',', ' ' ) . ' €';
+                                    }
+                                    return '';
+                                },
+                            ],
+                            [
+                                'label' => 'Commission',
+                                'class' => 'commission-row',
+                                'type'  => 'detail detail-commission',
+                                'value_fn' => function( $b ) {
+                                    if ( isset( $b->commission ) && '' !== $b->commission && null !== $b->commission ) {
+                                        return number_format( (float) $b->commission, 2, ',', ' ' ) . ' €';
                                     }
                                     return '';
                                 },

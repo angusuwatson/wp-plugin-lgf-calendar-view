@@ -161,6 +161,42 @@
     background: #fff;
 }
 
+.lgf-calendar-view .calendar-grid .notes-row td,
+.lgf-calendar-view .calendar-grid .notes-row th {
+    background: #fffdf8;
+    border-top: 1px solid #8d8d8d;
+    border-bottom: 2px solid #000;
+    height: 26px;
+}
+
+.lgf-calendar-view .calendar-grid .notes-label-cell {
+    background: #f3f1e7;
+    font-weight: 700;
+    z-index: 5;
+}
+
+.lgf-calendar-view .calendar-grid .notes-cell {
+    padding: 0;
+}
+
+.lgf-calendar-view .calendar-grid .calendar-note-input {
+    width: 100%;
+    height: 100%;
+    min-height: 24px;
+    border: 0;
+    background: transparent;
+    padding: 2px 4px;
+    font: inherit;
+    color: #222;
+    box-sizing: border-box;
+}
+
+.lgf-calendar-view .calendar-grid .calendar-note-input:focus {
+    outline: 2px solid #4c8bf5;
+    outline-offset: -2px;
+    background: #fffef8;
+}
+
 .lgf-calendar-view .calendar-grid .room-name-row .room-label-cell,
 .lgf-calendar-view .calendar-grid .room-name-row td.calendar-cell {
     background: #2f2f2f;
@@ -186,7 +222,9 @@
 .lgf-calendar-view .calendar-grid .dinner-row .room-label-cell,
 .lgf-calendar-view .calendar-grid .dinner-row td,
 .lgf-calendar-view .calendar-grid .tarif-row .room-label-cell,
-.lgf-calendar-view .calendar-grid .tarif-row td {
+.lgf-calendar-view .calendar-grid .tarif-row td,
+.lgf-calendar-view .calendar-grid .commission-row .room-label-cell,
+.lgf-calendar-view .calendar-grid .commission-row td {
     background: transparent;
 }
 
@@ -219,6 +257,15 @@
     --room-fill: #c693f0;
     background: #c693f0;
     font-weight: 700;
+}
+
+.lgf-calendar-view .calendar-grid .commission-row .room-label-cell,
+.lgf-calendar-view .calendar-grid .commission-row td {
+    background: #fff;
+}
+
+.lgf-calendar-view .calendar-grid .commission-row td.has-booking {
+    background: #fff;
 }
 
 .lgf-calendar-view .calendar-grid tr[class*='-row'] .room-label-cell[data-room-color="#cc99ff"],
@@ -255,7 +302,8 @@
 .lgf-calendar-view .calendar-grid .telephone-row .room-label-text,
 .lgf-calendar-view .calendar-grid .occupancy-row .room-label-text,
 .lgf-calendar-view .calendar-grid .dinner-row .room-label-text,
-.lgf-calendar-view .calendar-grid .tarif-row .room-label-text {
+.lgf-calendar-view .calendar-grid .tarif-row .room-label-text,
+.lgf-calendar-view .calendar-grid .commission-row .room-label-text {
     font-weight: 400;
 }
 
@@ -274,7 +322,8 @@
 .lgf-calendar-view .calendar-grid .telephone-row td:first-child,
 .lgf-calendar-view .calendar-grid .occupancy-row td:first-child,
 .lgf-calendar-view .calendar-grid .dinner-row td:first-child,
-.lgf-calendar-view .calendar-grid .tarif-row td:first-child {
+.lgf-calendar-view .calendar-grid .tarif-row td:first-child,
+.lgf-calendar-view .calendar-grid .commission-row td:first-child {
     border-left: 3px solid #000;
 }
 
@@ -283,7 +332,8 @@
 .lgf-calendar-view .calendar-grid .telephone-row td:last-child,
 .lgf-calendar-view .calendar-grid .occupancy-row td:last-child,
 .lgf-calendar-view .calendar-grid .dinner-row td:last-child,
-.lgf-calendar-view .calendar-grid .tarif-row td:last-child {
+.lgf-calendar-view .calendar-grid .tarif-row td:last-child,
+.lgf-calendar-view .calendar-grid .commission-row td:last-child {
     border-right: 3px solid #000;
 }
 

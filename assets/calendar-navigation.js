@@ -1,35 +1,80 @@
 /**
- * LGF Calendar View - AJAX Navigation
+ * LGF Calendar View - AJAX Navigation + Notes
  */
 (function($) {
     'use strict';
 
-    // On DOM ready
     $(function() {
-        var $container = $('.lgf-calendar-container');
-        if (!$container.length) return;
-
         var restUrl = lgfCalendar.restUrl;
         var nonce = lgfCalendar.nonce;
 
-        // Intercept nav clicks
-        $container.on('click', '.calendar-nav .button, .calendar-month-tab', function(e) {
-            e.preventDefault();
-            var href = $(this).attr('href');
-            if (!href) return;
+        function getContainer() {
+            return $('.lgf-calendar-container');
+        }
 
-            // Parse month and year from URL query
-            var url = new URL(href, window.location.origin);
-            var month = url.searchParams.get('month');
-            var year = url.searchParams.get('year');
-            if (!month || !year) return;
+        function getNotesStorageKey(month, year) {
+            return 'lgfCalendarNotes:' + year + '-' + String(month).padStart(2, '0');
+        }
 
-            loadMonth(month, year, true);
-        });
+        function loadNotes() {
+            var $container = getContainer();
+            if (!$container.length) {
+                return;
+            }
 
-        // Load month via AJAX
+            var month = $container.find('.calendar-note-input').first().data('note-month');
+            var year = $container.find('.calendar-note-input').first().data('note-year');
+            if (!month || !year) {
+                return;
+            }
+
+            var raw = window.localStorage.getItem(getNotesStorageKey(month, year));
+            var notes = {};
+
+            if (raw) {
+                try {
+                    notes = JSON.parse(raw) || {};
+                } catch (e) {
+                    notes = {};
+                }
+            }
+
+            $container.find('.calendar-note-input').each(function() {
+                var date = $(this).data('note-date');
+                $(this).val(notes[date] || '');
+            });
+        }
+
+        function saveNote($input) {
+            var month = $input.data('note-month');
+            var year = $input.data('note-year');
+            var date = $input.data('note-date');
+            if (!month || !year || !date) {
+                return;
+            }
+
+            var storageKey = getNotesStorageKey(month, year);
+            var raw = window.localStorage.getItem(storageKey);
+            var notes = {};
+
+            if (raw) {
+                try {
+                    notes = JSON.parse(raw) || {};
+                } catch (e) {
+                    notes = {};
+                }
+            }
+
+            notes[date] = $input.val();
+            window.localStorage.setItem(storageKey, JSON.stringify(notes));
+        }
+
         function loadMonth(month, year, pushState) {
-            console.log('Loading month:', month, year);
+            var $container = getContainer();
+            if (!$container.length) {
+                return;
+            }
+
             $.ajax({
                 url: restUrl,
                 method: 'GET',
@@ -42,18 +87,17 @@
                     year: year
                 },
                 success: function(response) {
-                    console.log('AJAX response:', response);
                     if (response && response.html) {
                         $container.replaceWith(response.html);
-                        $container = $('.lgf-calendar-container');
+                        loadNotes();
+
                         if (pushState) {
-                            var newUrl = new URL(window.location);
+                            var newUrl = new URL(window.location.href);
                             newUrl.searchParams.set('month', month);
                             newUrl.searchParams.set('year', year);
-                            window.history.pushState({ month: month, year: year }, '', newUrl);
+                            window.history.pushState({ month: month, year: year }, '', newUrl.toString());
                         }
                     } else {
-                        console.error('No HTML in response:', response);
                         alert('Failed to load calendar data: empty response.');
                     }
                 },
@@ -62,18 +106,36 @@
                     alert('Error loading calendar (status: ' + status + '). See console for details.');
                 },
                 complete: function() {
-                    $container.removeClass('loading');
+                    getContainer().removeClass('loading');
                 }
             });
         }
 
-        // Handle browser back/forward buttons
+        $(document).on('click', '.lgf-calendar-container .calendar-nav .button, .lgf-calendar-container .calendar-month-tab', function(e) {
+            e.preventDefault();
+            var href = $(this).attr('href');
+            if (!href) {
+                return;
+            }
+
+            var url = new URL(href, window.location.origin);
+            var month = url.searchParams.get('month');
+            var year = url.searchParams.get('year');
+            if (!month || !year) {
+                return;
+            }
+
+            loadMonth(month, year, true);
+        });
+
+        $(document).on('input change', '.lgf-calendar-container .calendar-note-input', function() {
+            saveNote($(this));
+        });
+
         window.addEventListener('popstate', function(e) {
             if (e.state && e.state.month && e.state.year) {
                 loadMonth(e.state.month, e.state.year, false);
             } else {
-                // No state, reload the page (maybe initial state)
-                // We could also parse current URL
                 var params = new URLSearchParams(window.location.search);
                 var month = params.get('month');
                 var year = params.get('year');
@@ -83,15 +145,15 @@
             }
         });
 
-        // Initial push state for current month to enable back button
         (function() {
             var params = new URLSearchParams(window.location.search);
             var month = params.get('month');
             var year = params.get('year');
             if (month && year) {
-                // Replace initial state with month/year
-                window.history.replaceState({ month: month, year: year }, '', window.location);
+                window.history.replaceState({ month: month, year: year }, '', window.location.href);
             }
         })();
+
+        loadNotes();
     });
 })(jQuery);
