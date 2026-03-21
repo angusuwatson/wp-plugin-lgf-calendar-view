@@ -312,9 +312,6 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
                 }
 
                 $matrix[ $room_id ][ $check_out_date_str ]['is_checkout'] = true;
-                if ( is_null( $matrix[ $room_id ][ $check_out_date_str ]['booking'] ) ) {
-                    $matrix[ $room_id ][ $check_out_date_str ]['booking'] = clone $booking_payload;
-                }
             }
         }
     }
