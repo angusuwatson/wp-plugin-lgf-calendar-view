@@ -29,6 +29,18 @@ function lgf_calendar_view_user_can_access() {
     return is_user_logged_in() && current_user_can( 'manage_options' );
 }
 
+function lgf_calendar_view_enqueue_shared_assets() {
+    wp_register_style( 'lgf-calendar-view', plugin_dir_url( __FILE__ ) . 'assets/style.css', [], '1.4' );
+    wp_enqueue_style( 'lgf-calendar-view' );
+
+    wp_register_script( 'lgf-calendar-view', plugin_dir_url( __FILE__ ) . 'assets/calendar-navigation.js', [ 'jquery' ], '1.1', true );
+    wp_localize_script( 'lgf-calendar-view', 'lgfCalendar', [
+        'restUrl' => esc_url_raw( rest_url( 'lgf-calendar/v1/table' ) ),
+        'nonce'   => wp_create_nonce( 'wp_rest' ),
+    ] );
+    wp_enqueue_script( 'lgf-calendar-view' );
+}
+
 // Enqueue scripts and styles
 add_action( 'wp_enqueue_scripts', 'lgf_calendar_view_enqueue_assets' );
 function lgf_calendar_view_enqueue_assets() {
@@ -41,15 +53,20 @@ function lgf_calendar_view_enqueue_assets() {
         return;
     }
 
-    wp_register_style( 'lgf-calendar-view', plugin_dir_url( __FILE__ ) . 'assets/style.css', [], '1.4' );
-    wp_enqueue_style( 'lgf-calendar-view' );
+    lgf_calendar_view_enqueue_shared_assets();
+}
 
-    wp_register_script( 'lgf-calendar-view', plugin_dir_url( __FILE__ ) . 'assets/calendar-navigation.js', [ 'jquery' ], '1.1', true );
-    wp_localize_script( 'lgf-calendar-view', 'lgfCalendar', [
-        'restUrl' => esc_url_raw( rest_url( 'lgf-calendar/v1/table' ) ),
-        'nonce'   => wp_create_nonce( 'wp_rest' ),
-    ] );
-    wp_enqueue_script( 'lgf-calendar-view' );
+add_action( 'admin_enqueue_scripts', 'lgf_calendar_view_enqueue_admin_assets' );
+function lgf_calendar_view_enqueue_admin_assets( $hook_suffix ) {
+    if ( ! lgf_calendar_view_user_can_access() ) {
+        return;
+    }
+
+    if ( 'toplevel_page_lgf-calendar-view' !== $hook_suffix ) {
+        return;
+    }
+
+    lgf_calendar_view_enqueue_shared_assets();
 }
 
 /**
@@ -435,6 +452,39 @@ function lgf_calendar_view_build_daily_summary( $calendar_data ) {
     }
 
     return $summary;
+}
+
+add_action( 'admin_menu', 'lgf_calendar_view_register_admin_menu' );
+function lgf_calendar_view_register_admin_menu() {
+    if ( ! lgf_calendar_view_user_can_access() ) {
+        return;
+    }
+
+    add_menu_page(
+        __( 'LGF Calendar View', 'lgf-calendar-view' ),
+        __( 'LGF Calendar', 'lgf-calendar-view' ),
+        'manage_options',
+        'lgf-calendar-view',
+        'lgf_calendar_view_render_admin_page',
+        'dashicons-calendar-alt',
+        58
+    );
+}
+
+function lgf_calendar_view_render_admin_page() {
+    if ( ! lgf_calendar_view_user_can_access() ) {
+        wp_die( esc_html__( 'You do not have permission to access this page.', 'lgf-calendar-view' ) );
+    }
+
+    $month = isset( $_GET['month'] ) ? intval( $_GET['month'] ) : intval( date( 'n' ) );
+    $year  = isset( $_GET['year'] ) ? intval( $_GET['year'] ) : intval( date( 'Y' ) );
+
+    $calendar_data = lgf_calendar_view_get_calendar_data( $month, $year );
+
+    echo '<div class="wrap">';
+    echo '<h1>' . esc_html__( 'LGF Calendar View', 'lgf-calendar-view' ) . '</h1>';
+    echo lgf_calendar_view_render_calendar( $calendar_data );
+    echo '</div>';
 }
 
 // Shortcode to display the calendar view
