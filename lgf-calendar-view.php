@@ -71,6 +71,73 @@ function lgf_calendar_view_enqueue_admin_assets( $hook_suffix ) {
     lgf_calendar_view_enqueue_shared_assets( 'admin' );
 }
 
+function lgf_calendar_view_get_locked_booking_statuses() {
+    if ( function_exists( 'MPHB' ) && method_exists( MPHB()->postTypes()->booking()->statuses(), 'getLockedRoomStatuses' ) ) {
+        return MPHB()->postTypes()->booking()->statuses()->getLockedRoomStatuses();
+    }
+
+    return [ 'confirmed', 'pending', 'pending-user', 'pending-payment' ];
+}
+
+function lgf_calendar_view_build_booking_payload( $booking, $reserved_room ) {
+    $customer = method_exists( $booking, 'getCustomer' ) ? $booking->getCustomer() : null;
+
+    $guest_name = '';
+    if ( $reserved_room && method_exists( $reserved_room, 'getGuestName' ) ) {
+        $guest_name = trim( (string) $reserved_room->getGuestName() );
+    }
+
+    if ( '' === $guest_name && $customer ) {
+        $first_name = method_exists( $customer, 'getFirstName' ) ? (string) $customer->getFirstName() : '';
+        $last_name  = method_exists( $customer, 'getLastName' ) ? (string) $customer->getLastName() : '';
+        $guest_name = trim( $first_name . ' ' . $last_name );
+    }
+
+    $adults = $reserved_room && method_exists( $reserved_room, 'getAdults' ) ? (int) $reserved_room->getAdults() : 0;
+    $children = $reserved_room && method_exists( $reserved_room, 'getChildren' ) ? (int) $reserved_room->getChildren() : 0;
+
+    $occupancy_parts = [];
+    if ( $adults > 0 ) {
+        $occupancy_parts[] = sprintf( '%dA', $adults );
+    }
+    if ( $children > 0 ) {
+        $occupancy_parts[] = sprintf( '%dC', $children );
+    }
+    if ( empty( $occupancy_parts ) ) {
+        $occupancy_parts[] = '0';
+    }
+
+    $is_imported = method_exists( $booking, 'isImported' ) ? (bool) $booking->isImported() : ! empty( get_post_meta( $booking->getId(), '_mphb_sync_id', true ) );
+
+    $tarif = '';
+    if ( ! $is_imported && $reserved_room && method_exists( $reserved_room, 'getLastRoomPriceBreakdown' ) ) {
+        $room_breakdown = $reserved_room->getLastRoomPriceBreakdown();
+        if ( is_array( $room_breakdown ) && isset( $room_breakdown['room']['discount_total'] ) ) {
+            $tarif = (float) $room_breakdown['room']['discount_total'];
+        }
+    }
+
+    return (object) [
+        'id' => method_exists( $booking, 'getId' ) ? (int) $booking->getId() : 0,
+        'status' => method_exists( $booking, 'getStatus' ) ? (string) $booking->getStatus() : '',
+        'check_in' => method_exists( $booking, 'getCheckInDate' ) && $booking->getCheckInDate() ? $booking->getCheckInDate()->format( 'Y-m-d' ) : '',
+        'check_out' => method_exists( $booking, 'getCheckOutDate' ) && $booking->getCheckOutDate() ? $booking->getCheckOutDate()->format( 'Y-m-d' ) : '',
+        'room_id' => $reserved_room && method_exists( $reserved_room, 'getRoomId' ) ? (int) $reserved_room->getRoomId() : 0,
+        'reserved_room_id' => $reserved_room && method_exists( $reserved_room, 'getId' ) ? (int) $reserved_room->getId() : 0,
+        'guest_name' => $guest_name,
+        'phone' => $customer && method_exists( $customer, 'getPhone' ) ? (string) $customer->getPhone() : '',
+        'adults' => $adults,
+        'children' => $children,
+        'occupancy_str' => implode( ' ', $occupancy_parts ),
+        'channel' => $is_imported ? 'I' : 'W',
+        'channel_label' => $is_imported ? 'Imported' : 'Website',
+        'is_imported' => $is_imported,
+        'tarif' => $tarif,
+        'commission' => '',
+        'dinner' => '',
+    ];
+}
+
 /**
  * Get cached calendar data or build and cache it.
  *
@@ -79,8 +146,7 @@ function lgf_calendar_view_enqueue_admin_assets( $hook_suffix ) {
  * @return array Calendar data structure
  */
 function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
-    // Use Motopress facades directly; they handle caching themselves
-    if ( ! function_exists( 'mphb_rooms_facade' ) ) {
+    if ( ! function_exists( 'MPHB' ) || ! function_exists( 'mphb_rooms_facade' ) ) {
         return [
             'rooms' => [],
             'matrix' => [],
@@ -94,24 +160,21 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
     $month = $month ?: date( 'n' );
     $year  = $year  ?: date( 'Y' );
 
-    // Build transient key
     $transient_key = 'lgf_calendar_' . $year . '_' . $month;
     $cached = get_transient( $transient_key );
-    // DEBUG: disable cache retrieval
-    // if ( false !== $cached ) {
-    //     return $cached;
-    // }
+    if ( false !== $cached ) {
+        return $cached;
+    }
 
     $first_day = new DateTime( sprintf( '%04d-%02d-01', $year, $month ) );
-    $days_in_month = intval( $first_day->format( 't' ) );
+    $days_in_month = (int) $first_day->format( 't' );
     $last_day = clone $first_day;
     $last_day->setDate( $year, $month, $days_in_month )->setTime( 23, 59, 59 );
 
     $first_day_str = $first_day->format( 'Y-m-d' );
     $last_day_str  = $last_day->format( 'Y-m-d' );
 
-    // Fetch rooms for the current language (Polylang compatibility)
-    $args = [
+    $room_args = [
         'post_type'      => 'mphb_room',
         'post_status'    => 'publish',
         'posts_per_page' => -1,
@@ -120,24 +183,16 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
         'fields'         => 'ids',
     ];
 
-    // If Polylang is active, filter by current language to avoid duplicate rooms
     if ( function_exists( 'pll_current_language' ) ) {
-        $args['lang'] = pll_current_language();
+        $room_args['lang'] = pll_current_language();
     } elseif ( function_exists( 'icl_object_id' ) && defined( 'ICL_LANGUAGE_CODE' ) ) {
-        // WPML compatibility
-        $args['lang'] = ICL_LANGUAGE_CODE;
+        $room_args['lang'] = ICL_LANGUAGE_CODE;
     }
 
-    error_log( 'LGF Calendar DEBUG: get_posts args=' . print_r( $args, true ) );
-    $room_ids = get_posts( $args );
-    error_log( 'LGF Calendar DEBUG: get_posts returned count=' . count( $room_ids ) . ' ids=' . implode( ',', $room_ids ) );
+    $is_language_filtered = ! empty( $room_args['lang'] );
+    $room_ids = get_posts( $room_args );
 
-    // Determine if we're filtering by language (Polylang/WPML)
-    $isLanguageFiltered = ! empty( $args['lang'] );
-
-    // Fallback only if not language-filtered: language-filtered empty likely means no rooms for that language
-    if ( empty( $room_ids ) && ! $isLanguageFiltered ) {
-        error_log( 'LGF Calendar DEBUG: get_posts returned empty and not language-filtered, trying direct DB query fallback' );
+    if ( empty( $room_ids ) && ! $is_language_filtered ) {
         global $wpdb;
         $room_ids = $wpdb->get_col(
             $wpdb->prepare(
@@ -146,26 +201,20 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
                 'publish'
             )
         );
-        error_log( 'LGF Calendar DEBUG: fallback DB query returned count=' . count( $room_ids ) . ' ids=' . implode( ',', $room_ids ) );
     }
 
-    // Convert to objects with id and title for consistency
-    $rooms = array_map( function( $room_id ) use ( $isLanguageFiltered ) {
+    $rooms = array_map( function( $room_id ) use ( $is_language_filtered ) {
         $title = get_the_title( $room_id );
-        // If NOT language-filtered (i.e., duplicate rooms present), strip trailing " 1" from duplicate room titles
-        if ( ! $isLanguageFiltered && preg_match( '/^(.*?)(?:\s+1)$/', $title, $matches ) ) {
+        if ( ! $is_language_filtered && preg_match( '/^(.*?)(?:\s+1)$/', $title, $matches ) ) {
             $title = $matches[1];
         }
+
         return (object) [
-            'id' => $room_id,
+            'id' => (int) $room_id,
             'title' => $title,
         ];
     }, $room_ids );
 
-    // Debug: log how many rooms we fetched
-    error_log( 'LGF Calendar: Fetched ' . count( $rooms ) . ' rooms. IDs: ' . implode( ',', wp_list_pluck( $rooms, 'id' ) ) );
-
-    // Assign theme colors per room (1-indexed)
     $room_colors = [
         1 => '#cc99ff',
         2 => '#b4c7e7',
@@ -173,9 +222,9 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
         4 => '#ffe699',
         5 => '#f4b183',
     ];
+
     foreach ( $rooms as $idx => $room ) {
-        $color = $room_colors[ $idx + 1 ] ?? '#cccccc';
-        $rooms[ $idx ]->color = $color;
+        $rooms[ $idx ]->color = $room_colors[ $idx + 1 ] ?? '#cccccc';
     }
 
     if ( empty( $rooms ) ) {
@@ -185,183 +234,86 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
             'month' => $month,
             'year' => $year,
             'days_in_month' => $days_in_month,
-            'days' => range(1, $days_in_month),
+            'days' => range( 1, $days_in_month ),
         ];
         set_transient( $transient_key, $result, 30 * MINUTE_IN_SECONDS );
         return $result;
     }
 
-    // Query bookings and their assigned rooms using Motopress CPT structure
-    global $wpdb;
-
-    // Booking statuses that block rooms (from Motopress research)
-    $locked_statuses = [ 'confirmed', 'pending', 'pending-user', 'pending-payment' ];
-
-    $bookings = $wpdb->get_results(
-        $wpdb->prepare(
-            "
-            SELECT 
-                b.ID as booking_id,
-                b.post_status as booking_status,
-                check_in.meta_value as check_in_date,
-                check_out.meta_value as check_out_date,
-                rr.ID as reserved_room_id,
-                room_id_meta.meta_value as room_id,
-                channel_meta.meta_value as channel,
-                total_price_meta.meta_value as total_price,
-                adults_meta.meta_value as adults,
-                children_meta.meta_value as children,
-                dinner_meta.meta_value as dinner
-            FROM {$wpdb->posts} AS b
-            INNER JOIN {$wpdb->posts} AS rr ON rr.post_parent = b.ID AND rr.post_type = 'mphb_reserved_room'
-            INNER JOIN {$wpdb->postmeta} AS room_id_meta ON room_id_meta.post_id = rr.ID AND room_id_meta.meta_key = '_mphb_room_id'
-            INNER JOIN {$wpdb->postmeta} AS check_in ON check_in.post_id = b.ID AND check_in.meta_key = 'mphb_check_in_date'
-            INNER JOIN {$wpdb->postmeta} AS check_out ON check_out.post_id = b.ID AND check_out.meta_key = 'mphb_check_out_date'
-            LEFT JOIN {$wpdb->postmeta} AS channel_meta ON channel_meta.post_id = b.ID AND channel_meta.meta_key = '_mphb_channel'
-            LEFT JOIN {$wpdb->postmeta} AS total_price_meta ON total_price_meta.post_id = b.ID AND total_price_meta.meta_key = '_mphb_total_price'
-            LEFT JOIN {$wpdb->postmeta} AS adults_meta ON adults_meta.post_id = rr.ID AND adults_meta.meta_key = '_mphb_adults'
-            LEFT JOIN {$wpdb->postmeta} AS children_meta ON children_meta.post_id = rr.ID AND children_meta.meta_key = '_mphb_children'
-            LEFT JOIN {$wpdb->postmeta} AS dinner_meta ON dinner_meta.post_id = rr.ID AND dinner_meta.meta_key = '_mphb_dinner'
-            WHERE b.post_type = 'mphb_booking'
-              AND b.post_status IN ('" . implode( "','", array_map( 'esc_sql', $locked_statuses ) ) . "')
-              AND check_in.meta_value <= %s
-              AND check_out.meta_value >= %s
-            ",
-            $last_day_str,
-            $first_day_str
-        )
-    );
-
-    error_log( 'LGF Calendar: Bookings found: ' . count( $bookings ) );
-
-    // Build matrix: room_id => date_str => ['booking' => object, 'is_checkin' => bool, 'is_checkout' => bool]
     $matrix = [];
     foreach ( $rooms as $room ) {
         $matrix[ $room->id ] = [];
     }
 
-    foreach ( $bookings as $b ) {
-        $room_id = intval( $b->room_id );
-        if ( ! isset( $matrix[ $room_id ] ) ) {
+    $bookings = MPHB()->getBookingRepository()->findAllInPeriod(
+        $first_day_str,
+        $last_day_str,
+        [
+            'room_locked' => true,
+            'post_status' => lgf_calendar_view_get_locked_booking_statuses(),
+            'orderby'     => 'date',
+            'order'       => 'ASC',
+        ]
+    );
+
+    foreach ( $bookings as $booking ) {
+        if ( ! $booking || ! method_exists( $booking, 'getReservedRooms' ) ) {
             continue;
         }
 
-        $check_in = new DateTime( $b->check_in_date );
-        $check_out = new DateTime( $b->check_out_date );
+        $reserved_rooms = $booking->getReservedRooms();
+        $check_in = $booking->getCheckInDate();
+        $check_out = $booking->getCheckOutDate();
 
-        // Mark stay nights (check-in inclusive, check-out exclusive)
-        for ( $date = clone $check_in; $date < $check_out; $date->modify( '+1 day' ) ) {
-            $date_str = $date->format( 'Y-m-d' );
-            if ( $date_str < $first_day_str || $date_str > $last_day_str ) {
+        if ( ! $check_in || ! $check_out ) {
+            continue;
+        }
+
+        foreach ( $reserved_rooms as $reserved_room ) {
+            if ( ! $reserved_room || ! method_exists( $reserved_room, 'getRoomId' ) ) {
                 continue;
             }
-            if ( ! isset( $matrix[ $room_id ][ $date_str ] ) ) {
-                $matrix[ $room_id ][ $date_str ] = [
-                    'booking' => null,
-                    'is_checkin' => false,
-                    'is_checkout' => false,
-                ];
-            }
-            $entry = &$matrix[ $room_id ][ $date_str ];
-            $entry['booking'] = (object) [
-                'id' => $b->booking_id,
-                'status' => $b->booking_status,
-                'check_in' => $b->check_in_date,
-                'check_out' => $b->check_out_date,
-                'room_id' => $room_id,
-                'channel' => $b->channel,
-                'total_price' => $b->total_price,
-                'adults' => intval( $b->adults ),
-                'children' => intval( $b->children ),
-                'dinner' => $b->dinner,
-            ];
-            if ( $date_str === $b->check_in_date ) {
-                $entry['is_checkin'] = true;
-            }
-        }
 
-        // Mark check-out day separately (if within month)
-        $check_out_date_str = $check_out->format( 'Y-m-d' );
-        if ( $check_out_date_str >= $first_day_str && $check_out_date_str <= $last_day_str ) {
-            if ( ! isset( $matrix[ $room_id ][ $check_out_date_str ] ) ) {
-                $matrix[ $room_id ][ $check_out_date_str ] = [
-                    'booking' => null,
-                    'is_checkin' => false,
-                    'is_checkout' => false,
-                ];
+            $room_id = (int) $reserved_room->getRoomId();
+            if ( ! isset( $matrix[ $room_id ] ) ) {
+                continue;
             }
-            $matrix[ $room_id ][ $check_out_date_str ]['is_checkout'] = true;
-            if ( is_null( $matrix[ $room_id ][ $check_out_date_str ]['booking'] ) ) {
-                $matrix[ $room_id ][ $check_out_date_str ]['booking'] = (object) [
-                    'id' => $b->booking_id,
-                    'status' => $b->booking_status,
-                    'check_in' => $b->check_in_date,
-                    'check_out' => $b->check_out_date,
-                    'room_id' => $room_id,
-                    'channel' => $b->channel,
-                    'total_price' => $b->total_price,
-                    'adults' => intval( $b->adults ),
-                    'children' => intval( $b->children ),
-                    'dinner' => $b->dinner,
-                ];
-            }
-        }
-    }
 
-    // DEBUG: log counts early
-    file_put_contents( '/tmp/lgf_calendar_debug.log', 'Rooms=' . count( $rooms ) . ', Bookings=' . count( $bookings ) . "\n", FILE_APPEND );
+            $booking_payload = lgf_calendar_view_build_booking_payload( $booking, $reserved_room );
 
-    // Fetch guest names for all unique booking IDs
-    $booking_ids = array_unique( array_column( $bookings, 'booking_id' ) );
-    $guest_names = [];
-    if ( ! empty( $booking_ids ) ) {
-        $placeholders = implode( ',', array_fill( 0, count( $booking_ids ), '%d' ) );
-        $meta_rows = $wpdb->get_results(
-            $wpdb->prepare(
-                "SELECT post_id, meta_key, meta_value FROM {$wpdb->postmeta} WHERE post_id IN ($placeholders) AND meta_key IN ('_mphb_first_name', '_mphb_last_name', '_mphb_phone', 'mphb_phone', '_billing_phone', 'billing_phone')",
-                $booking_ids
-            )
-        );
-        foreach ( $meta_rows as $row ) {
-            $bid = $row->post_id;
-            if ( ! isset( $guest_names[ $bid ] ) ) {
-                $guest_names[ $bid ] = new stdClass();
-            }
-            if ( $row->meta_key == '_mphb_first_name' ) {
-                $guest_names[ $bid ]->first_name = $row->meta_value;
-            } elseif ( $row->meta_key == '_mphb_last_name' ) {
-                $guest_names[ $bid ]->last_name = $row->meta_value;
-            } elseif ( in_array( $row->meta_key, [ '_mphb_phone', 'mphb_phone', '_billing_phone', 'billing_phone' ], true ) ) {
-                if ( empty( $guest_names[ $bid ]->phone ) ) {
-                    $guest_names[ $bid ]->phone = $row->meta_value;
+            for ( $date = clone $check_in; $date < $check_out; $date->modify( '+1 day' ) ) {
+                $date_str = $date->format( 'Y-m-d' );
+                if ( $date_str < $first_day_str || $date_str > $last_day_str ) {
+                    continue;
+                }
+
+                if ( ! isset( $matrix[ $room_id ][ $date_str ] ) ) {
+                    $matrix[ $room_id ][ $date_str ] = [
+                        'booking' => null,
+                        'is_checkin' => false,
+                        'is_checkout' => false,
+                    ];
+                }
+
+                $matrix[ $room_id ][ $date_str ]['booking'] = clone $booking_payload;
+                if ( $date_str === $booking_payload->check_in ) {
+                    $matrix[ $room_id ][ $date_str ]['is_checkin'] = true;
                 }
             }
-        }
-        foreach ( $matrix as &$room_matrix ) {
-            foreach ( $room_matrix as &$entry ) {
-                if ( $entry['booking'] ) {
-                    $booking = $entry['booking'];
-                    // Set guest name if available
-                    if ( isset( $guest_names[ $booking->id ] ) ) {
-                        $guest = $guest_names[ $booking->id ];
-                        $booking->guest_name = trim( ($guest->first_name ?? '') . ' ' . ($guest->last_name ?? '') );
-                        $booking->phone = $guest->phone ?? '';
-                    } else {
-                        $booking->guest_name = '';
-                        $booking->phone = '';
-                    }
-                    // Compute derived fields if not already set
-                    if ( ! isset( $booking->platform_label ) ) {
-                        $channel = $booking->channel ?? '';
-                        $platform_map = [ 'W' => 'Website', 'B' => 'Booking.com', 'E' => 'Email', 'T' => 'Telephone' ];
-                        $booking->platform_label = $platform_map[ $channel ] ?? $channel;
-                        $adults = intval( $booking->adults ?? 0 );
-                        $children = intval( $booking->children ?? 0 );
-                        $booking->occupancy_str = $adults . 'A ' . $children . 'E';
-                        $total = floatval( $booking->total_price ?? 0 );
-                        $booking->tarif = $total;
-                        $booking->commission = ( $channel === 'B' ) ? round( $total * 0.15, 2 ) : 0;
-                    }
+
+            $check_out_date_str = $check_out->format( 'Y-m-d' );
+            if ( $check_out_date_str >= $first_day_str && $check_out_date_str <= $last_day_str ) {
+                if ( ! isset( $matrix[ $room_id ][ $check_out_date_str ] ) ) {
+                    $matrix[ $room_id ][ $check_out_date_str ] = [
+                        'booking' => null,
+                        'is_checkin' => false,
+                        'is_checkout' => false,
+                    ];
+                }
+
+                $matrix[ $room_id ][ $check_out_date_str ]['is_checkout'] = true;
+                if ( is_null( $matrix[ $room_id ][ $check_out_date_str ]['booking'] ) ) {
+                    $matrix[ $room_id ][ $check_out_date_str ]['booking'] = clone $booking_payload;
                 }
             }
         }
@@ -373,11 +325,10 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
         'month' => $month,
         'year' => $year,
         'days_in_month' => $days_in_month,
-        'days' => range(1, $days_in_month),
+        'days' => range( 1, $days_in_month ),
     ];
 
-    // DEBUG: disable caching to avoid stale data
-    // set_transient( $transient_key, $result, 30 * MINUTE_IN_SECONDS );
+    set_transient( $transient_key, $result, 30 * MINUTE_IN_SECONDS );
 
     return $result;
 }
@@ -418,13 +369,13 @@ function lgf_calendar_view_build_daily_summary( $calendar_data ) {
             }
 
             $booking = $room_matrix[ $date_str ]['booking'];
-            $booking_id = (int) $booking->id;
+            $booking_key = ! empty( $booking->reserved_room_id ) ? 'rr_' . (int) $booking->reserved_room_id : 'b_' . (int) $booking->id;
 
-            if ( isset( $seen_bookings[ $booking_id ] ) ) {
+            if ( isset( $seen_bookings[ $booking_key ] ) ) {
                 continue;
             }
 
-            $seen_bookings[ $booking_id ] = true;
+            $seen_bookings[ $booking_key ] = true;
             $rooms_count++;
             $table_dhotes += ! empty( $booking->dinner ) ? 1 : 0;
             $tax_adults += (int) ( $booking->adults ?? 0 );
@@ -556,12 +507,7 @@ function lgf_calendar_rest_table( WP_REST_Request $request ) {
     $context = $request->get_param( 'context' );
     $context = 'admin' === $context ? 'admin' : 'frontend';
 
-    error_log( "LGF REST: requested month=$month year=$year context=$context" );
-
     $calendar_data = lgf_calendar_view_get_calendar_data( $month, $year );
-
-    error_log( 'LGF REST: rooms count=' . count( $calendar_data['rooms'] ) . ', matrix rooms=' . count( $calendar_data['matrix'] ) );
-
     $html = lgf_calendar_view_render_calendar( $calendar_data, $context );
 
     return rest_ensure_response( [ 'html' => $html ] );
