@@ -1,72 +1,31 @@
-/**
- * LGF Calendar View - AJAX Navigation + Notes
- */
 (function($) {
     'use strict';
 
     $(function() {
         var restUrl = lgfCalendar.restUrl;
+        var dailyNotesUrl = lgfCalendar.dailyNotesUrl;
+        var bookingUrl = lgfCalendar.bookingUrl;
         var nonce = lgfCalendar.nonce;
+        var saveTimers = {};
 
         function getContainer() {
             return $('.lgf-calendar-container');
         }
 
-        function getNotesStorageKey(month, year) {
-            return 'lgfCalendarNotes:' + year + '-' + String(month).padStart(2, '0');
+        function request(options) {
+            return $.ajax($.extend({}, options, {
+                beforeSend: function(xhr) {
+                    xhr.setRequestHeader('X-WP-Nonce', nonce);
+                    if (typeof options.beforeSend === 'function') {
+                        options.beforeSend(xhr);
+                    }
+                }
+            }));
         }
 
-        function loadNotes() {
-            var $container = getContainer();
-            if (!$container.length) {
-                return;
-            }
-
-            var month = $container.find('.calendar-note-input').first().data('note-month');
-            var year = $container.find('.calendar-note-input').first().data('note-year');
-            if (!month || !year) {
-                return;
-            }
-
-            var raw = window.localStorage.getItem(getNotesStorageKey(month, year));
-            var notes = {};
-
-            if (raw) {
-                try {
-                    notes = JSON.parse(raw) || {};
-                } catch (e) {
-                    notes = {};
-                }
-            }
-
-            $container.find('.calendar-note-input').each(function() {
-                var date = $(this).data('note-date');
-                $(this).val(notes[date] || '');
-            });
-        }
-
-        function saveNote($input) {
-            var month = $input.data('note-month');
-            var year = $input.data('note-year');
-            var date = $input.data('note-date');
-            if (!month || !year || !date) {
-                return;
-            }
-
-            var storageKey = getNotesStorageKey(month, year);
-            var raw = window.localStorage.getItem(storageKey);
-            var notes = {};
-
-            if (raw) {
-                try {
-                    notes = JSON.parse(raw) || {};
-                } catch (e) {
-                    notes = {};
-                }
-            }
-
-            notes[date] = $input.val();
-            window.localStorage.setItem(storageKey, JSON.stringify(notes));
+        function setSavingState($el, state) {
+            $el.toggleClass('is-saving', state === 'saving');
+            $el.toggleClass('is-error', state === 'error');
         }
 
         function loadMonth(month, year, pushState) {
@@ -75,23 +34,14 @@
                 return;
             }
 
-            $.ajax({
+            request({
                 url: restUrl,
                 method: 'GET',
-                beforeSend: function(xhr) {
-                    xhr.setRequestHeader('X-WP-Nonce', nonce);
-                    $container.addClass('loading');
-                },
-                data: {
-                    month: month,
-                    year: year,
-                    context: lgfCalendar.context || 'frontend'
-                },
+                data: { month: month, year: year, context: lgfCalendar.context || 'frontend' },
+                beforeSend: function() { $container.addClass('loading'); },
                 success: function(response) {
                     if (response && response.html) {
                         $container.replaceWith(response.html);
-                        loadNotes();
-
                         if (pushState) {
                             var newUrl = new URL(window.location.href);
                             newUrl.searchParams.set('month', month);
@@ -106,36 +56,100 @@
                     console.error('AJAX error:', status, error, xhr.responseText);
                     alert('Error loading calendar (status: ' + status + '). See console for details.');
                 },
-                complete: function() {
-                    getContainer().removeClass('loading');
+                complete: function() { getContainer().removeClass('loading'); }
+            });
+        }
+
+        function debounceSave(key, callback) {
+            clearTimeout(saveTimers[key]);
+            saveTimers[key] = setTimeout(callback, 350);
+        }
+
+        function saveDailyNote($input) {
+            var date = $input.data('note-date');
+            if (!date) return;
+            setSavingState($input, 'saving');
+            request({
+                url: dailyNotesUrl,
+                method: 'POST',
+                data: { date: date, note: $input.val() },
+                success: function() { setSavingState($input, 'done'); },
+                error: function(xhr) {
+                    console.error(xhr.responseText);
+                    setSavingState($input, 'error');
+                }
+            });
+        }
+
+        function getOverlayPayload($input) {
+            var $table = $input.closest('table');
+            var bookingId = $input.data('booking-id') || $input.closest('.calendar-occupancy-editor').data('booking-id');
+            var roomId = $input.data('room-id') || $input.closest('.calendar-occupancy-editor').data('room-id');
+            var reservedRoomId = $input.data('reserved-room-id') || $input.closest('.calendar-occupancy-editor').data('reserved-room-id');
+
+            return {
+                booking_id: bookingId,
+                room_id: roomId,
+                reserved_room_id: reservedRoomId,
+                booking_note: $table.find('.calendar-booking-note-input[data-reserved-room-id="' + reservedRoomId + '"]').first().val() || '',
+                manual_guest_name: $table.find('.calendar-booking-input[data-field="manual_guest_name"][data-reserved-room-id="' + reservedRoomId + '"]').first().val() || '',
+                manual_adults: $table.find('.occupancy-part-input[data-field="manual_adults"][data-reserved-room-id="' + reservedRoomId + '"]').first().val() || '',
+                manual_children: $table.find('.occupancy-part-input[data-field="manual_children"][data-reserved-room-id="' + reservedRoomId + '"]').first().val() || '',
+                extras_formula: $table.find('.calendar-extras-input[data-reserved-room-id="' + reservedRoomId + '"]').first().val() || '',
+                manual_tarif: $table.find('.calendar-money-input[data-field="manual_tarif"][data-reserved-room-id="' + reservedRoomId + '"]').first().val() || '',
+                manual_commission: $table.find('.calendar-money-input[data-field="manual_commission"][data-reserved-room-id="' + reservedRoomId + '"]').first().val() || ''
+            };
+        }
+
+        function saveBookingOverlay($input) {
+            var payload = getOverlayPayload($input);
+            if (!payload.reserved_room_id) return;
+            setSavingState($input, 'saving');
+            request({
+                url: bookingUrl,
+                method: 'POST',
+                data: payload,
+                success: function(response) {
+                    setSavingState($input, 'done');
+                    if ($input.hasClass('calendar-extras-input')) {
+                        var $editor = $input.closest('.calendar-extras-editor');
+                        if (response && typeof response.extras_formula !== 'undefined') {
+                            $input.val(response.extras_formula || '');
+                        }
+                        $editor.find('.calendar-extras-total').text(response && response.extras_total !== null ? Number(response.extras_total).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €' : '');
+                    }
+                },
+                error: function(xhr) {
+                    console.error(xhr.responseText);
+                    setSavingState($input, 'error');
+                    var message = 'Save failed.';
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        message = xhr.responseJSON.message;
+                    }
+                    alert(message);
                 }
             });
         }
 
         $(document).on('click', '.lgf-calendar-container .calendar-nav .button, .lgf-calendar-container .calendar-month-tab', function(e) {
             var href = $(this).attr('href');
-            if (!href) {
-                return;
-            }
-
-            if (lgfCalendar.context === 'admin') {
-                return;
-            }
-
+            if (!href || lgfCalendar.context === 'admin') return;
             e.preventDefault();
-
             var url = new URL(href, window.location.origin);
             var month = url.searchParams.get('month');
             var year = url.searchParams.get('year');
-            if (!month || !year) {
-                return;
-            }
-
-            loadMonth(month, year, true);
+            if (month && year) loadMonth(month, year, true);
         });
 
-        $(document).on('input change', '.lgf-calendar-container .calendar-note-input', function() {
-            saveNote($(this));
+        $(document).on('input', '.lgf-calendar-container .calendar-note-input', function() {
+            var $input = $(this);
+            debounceSave('note:' + $input.data('note-date'), function() { saveDailyNote($input); });
+        });
+
+        $(document).on('input', '.lgf-calendar-container .calendar-booking-input', function() {
+            var $input = $(this);
+            var reservedRoomId = $input.data('reserved-room-id') || $input.closest('.calendar-occupancy-editor').data('reserved-room-id');
+            debounceSave('booking:' + reservedRoomId, function() { saveBookingOverlay($input); });
         });
 
         window.addEventListener('popstate', function(e) {
@@ -145,9 +159,7 @@
                 var params = new URLSearchParams(window.location.search);
                 var month = params.get('month');
                 var year = params.get('year');
-                if (month && year) {
-                    loadMonth(month, year, false);
-                }
+                if (month && year) loadMonth(month, year, false);
             }
         });
 
@@ -159,7 +171,5 @@
                 window.history.replaceState({ month: month, year: year }, '', window.location.href);
             }
         })();
-
-        loadNotes();
     });
 })(jQuery);
