@@ -36,25 +36,28 @@ $month_tabs = lgf_calendar_view_get_month_tabs( $month, $year );
     <div class="lgf-calendar-view">
         <table class="wp-list-table widefat fixed striped calendar-grid">
             <thead>
-                <tr class="header-row">
-                    <th class="label sticky-col"></th>
+                <tr class="header-row month-row">
+                    <th class="label sticky-col room-header-spacer"></th>
                     <?php foreach ( $days as $day ) : ?>
-                        <th><?php echo esc_html( date_i18n( 'F', mktime( 0, 0, 0, $month, $day, $year ) ) ); ?><br><strong><?php echo esc_html( $day ); ?></strong></th>
+                        <th>
+                            <span class="calendar-month-name"><?php echo esc_html( date_i18n( 'F', mktime( 0, 0, 0, $month, $day, $year ) ) ); ?></span>
+                            <span class="calendar-day-number"><?php echo esc_html( $day ); ?></span>
+                        </th>
                     <?php endforeach; ?>
                 </tr>
-                <tr class="dow-row">
-                    <th class="label sticky-col"></th>
+                <tr class="dow-row weekday-row">
+                    <th class="label sticky-col room-header-spacer"></th>
                     <?php foreach ( $days as $day ) :
                         $date_str = sprintf( '%04d-%02d-%02d', $year, $month, $day );
                     ?>
-                        <th><?php echo esc_html( date_i18n( 'l', strtotime( $date_str ) ) ); ?></th>
+                        <th><span class="calendar-weekday"><?php echo esc_html( date_i18n( 'l', strtotime( $date_str ) ) ); ?></span></th>
                     <?php endforeach; ?>
                 </tr>
             </thead>
             <tbody>
                 <?php if ( empty( $rooms ) ) : ?>
                     <tr>
-                        <td colspan="<?php echo 1 + $days_in_month; ?>"><?php esc_html_e( 'No rooms found.', 'lgf-calendar-view' ); ?></td>
+                        <td colspan="<?php echo esc_attr( 1 + $days_in_month ); ?>"><?php esc_html_e( 'No rooms found.', 'lgf-calendar-view' ); ?></td>
                     </tr>
                 <?php else : ?>
                     <?php foreach ( $rooms as $index => $room ) :
@@ -65,44 +68,39 @@ $month_tabs = lgf_calendar_view_get_month_tabs( $month, $year );
                             [
                                 'label' => $room_number . ' - ' . $room->title,
                                 'class' => 'room-name-row',
-                                'label_style' => 'background:#404040; color:#fff;',
-                                'cell_style' => 'background:#404040;',
+                                'type'  => 'title',
+                                'value_fn' => null,
                             ],
                             [
                                 'label' => 'Name',
                                 'class' => 'guest-row',
-                                'label_style' => "background:$color;",
-                                'cell_style' => "background:$color;",
+                                'type'  => 'detail',
                                 'value_fn' => function( $b ) { return $b->guest_name ?? ''; },
                             ],
                             [
                                 'label' => 'Telephone Number',
-                                'class' => 'platform-row',
-                                'label_style' => "background:$color;",
-                                'cell_style' => "background:$color;",
-                                'value_fn' => function( $b ) { return ''; },
+                                'class' => 'telephone-row',
+                                'type'  => 'detail',
+                                'value_fn' => function( $b ) { return $b->phone ?? ''; },
                             ],
                             [
                                 'label' => 'Occupancy',
                                 'class' => 'occupancy-row',
-                                'label_style' => "background:$color;",
-                                'cell_style' => "background:$color;",
+                                'type'  => 'detail',
                                 'value_fn' => function( $b ) { return $b->occupancy_str ?? ''; },
                             ],
                             [
                                 'label' => "Table d'hôte",
                                 'class' => 'dinner-row',
-                                'label_style' => "background:$color;",
-                                'cell_style' => "background:$color;",
+                                'type'  => 'detail',
                                 'value_fn' => function( $b ) { return ! empty( $b->dinner ) ? $b->dinner : ''; },
                             ],
                             [
                                 'label' => 'Tarif',
                                 'class' => 'tarif-row',
-                                'label_style' => "background:$color; text-align:right;",
-                                'cell_style' => "background:$color; text-align:right;",
+                                'type'  => 'detail detail-tarif',
                                 'value_fn' => function( $b ) {
-                                    if ( $b->tarif !== '' && $b->tarif !== null ) {
+                                    if ( isset( $b->tarif ) && '' !== $b->tarif && null !== $b->tarif ) {
                                         return number_format( (float) $b->tarif, 2, ',', ' ' ) . ' €';
                                     }
                                     return '';
@@ -110,29 +108,34 @@ $month_tabs = lgf_calendar_view_get_month_tabs( $month, $year );
                             ],
                         ];
 
-                        foreach ( $rows as $row ) :
+                        foreach ( $rows as $row_index => $row ) :
+                            $row_classes = [ $row['class'] ];
+                            $row_classes[] = 0 === $row_index ? 'room-block-start' : 'room-block-detail';
+                            if ( count( $rows ) - 1 === $row_index ) {
+                                $row_classes[] = 'room-block-end';
+                            }
                     ?>
-                        <tr class="<?php echo esc_attr( $row['class'] ); ?>">
-                            <td class="label sticky-col" style="<?php echo esc_attr( $row['label_style'] ); ?>"><?php echo esc_html( $row['label'] ); ?></td>
+                        <tr class="<?php echo esc_attr( implode( ' ', $row_classes ) ); ?>">
+                            <td class="label sticky-col room-label-cell <?php echo esc_attr( $row['type'] ); ?>" data-room-color="<?php echo esc_attr( $color ); ?>">
+                                <span class="room-label-text"><?php echo esc_html( $row['label'] ); ?></span>
+                            </td>
                             <?php foreach ( $days as $day ) :
                                 $date_str = sprintf( '%04d-%02d-%02d', $year, $month, $day );
                                 $entry = $matrix[ $room_id ][ $date_str ] ?? null;
                                 $booking = $entry['booking'] ?? null;
                                 $value = '';
-                                if ( $booking && isset( $row['value_fn'] ) ) {
+                                if ( $booking && isset( $row['value_fn'] ) && is_callable( $row['value_fn'] ) ) {
                                     $value = $row['value_fn']( $booking );
                                 }
+                                $cell_classes = [ 'calendar-cell', $row['type'] ];
+                                if ( ! empty( $booking ) ) {
+                                    $cell_classes[] = 'has-booking';
+                                }
                             ?>
-                                <td style="<?php echo esc_attr( $row['cell_style'] ); ?>"><?php echo esc_html( $value ); ?></td>
+                                <td class="<?php echo esc_attr( implode( ' ', $cell_classes ) ); ?>" data-room-color="<?php echo esc_attr( $color ); ?>"><?php echo esc_html( $value ); ?></td>
                             <?php endforeach; ?>
                         </tr>
                     <?php endforeach; ?>
-                    <tr class="room-gap-row">
-                        <td class="sticky-col gap-label"></td>
-                        <?php foreach ( $days as $day ) : ?>
-                            <td></td>
-                        <?php endforeach; ?>
-                    </tr>
                     <?php endforeach; ?>
                 <?php endif; ?>
 
@@ -150,7 +153,7 @@ $month_tabs = lgf_calendar_view_get_month_tabs( $month, $year );
                 foreach ( $footer_rows as $label => $key ) :
                 ?>
                     <tr class="summary-row summary-<?php echo esc_attr( sanitize_title( $key ) ); ?>">
-                        <td class="label sticky-col"><?php echo esc_html( $label ); ?></td>
+                        <td class="label sticky-col summary-label-cell"><?php echo esc_html( $label ); ?></td>
                         <?php foreach ( $days as $day ) :
                             $value = $summary[ $day ][ $key ] ?? '';
                             $display = $value;

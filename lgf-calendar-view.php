@@ -299,7 +299,7 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
         $placeholders = implode( ',', array_fill( 0, count( $booking_ids ), '%d' ) );
         $meta_rows = $wpdb->get_results(
             $wpdb->prepare(
-                "SELECT post_id, meta_key, meta_value FROM {$wpdb->postmeta} WHERE post_id IN ($placeholders) AND meta_key IN ('_mphb_first_name', '_mphb_last_name')",
+                "SELECT post_id, meta_key, meta_value FROM {$wpdb->postmeta} WHERE post_id IN ($placeholders) AND meta_key IN ('_mphb_first_name', '_mphb_last_name', '_mphb_phone', 'mphb_phone', '_billing_phone', 'billing_phone')",
                 $booking_ids
             )
         );
@@ -312,6 +312,10 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
                 $guest_names[ $bid ]->first_name = $row->meta_value;
             } elseif ( $row->meta_key == '_mphb_last_name' ) {
                 $guest_names[ $bid ]->last_name = $row->meta_value;
+            } elseif ( in_array( $row->meta_key, [ '_mphb_phone', 'mphb_phone', '_billing_phone', 'billing_phone' ], true ) ) {
+                if ( empty( $guest_names[ $bid ]->phone ) ) {
+                    $guest_names[ $bid ]->phone = $row->meta_value;
+                }
             }
         }
         foreach ( $matrix as &$room_matrix ) {
@@ -322,8 +326,10 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
                     if ( isset( $guest_names[ $booking->id ] ) ) {
                         $guest = $guest_names[ $booking->id ];
                         $booking->guest_name = trim( ($guest->first_name ?? '') . ' ' . ($guest->last_name ?? '') );
+                        $booking->phone = $guest->phone ?? '';
                     } else {
                         $booking->guest_name = '';
+                        $booking->phone = '';
                     }
                     // Compute derived fields if not already set
                     if ( ! isset( $booking->platform_label ) ) {
