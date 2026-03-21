@@ -25,9 +25,17 @@ function lgf_calendar_view_check_dependency() {
     }
 }
 
+function lgf_calendar_view_user_can_access() {
+    return is_user_logged_in() && current_user_can( 'manage_options' );
+}
+
 // Enqueue scripts and styles
 add_action( 'wp_enqueue_scripts', 'lgf_calendar_view_enqueue_assets' );
 function lgf_calendar_view_enqueue_assets() {
+    if ( ! lgf_calendar_view_user_can_access() ) {
+        return;
+    }
+
     $post = get_post();
     if ( ! $post || ! has_shortcode( $post->post_content, 'lgf_calendar_view' ) ) {
         return;
@@ -438,6 +446,10 @@ function lgf_calendar_view_render_calendar( $calendar_data ) {
 }
 
 function lgf_calendar_view_shortcode( $atts ) {
+    if ( ! lgf_calendar_view_user_can_access() ) {
+        return '';
+    }
+
     $atts = shortcode_atts( [
         'month' => date( 'n' ),
         'year'  => date( 'Y' ),
@@ -473,7 +485,7 @@ add_action( 'rest_api_init', function() {
             ],
         ],
         'permission_callback' => function() {
-            return true; // public access
+            return lgf_calendar_view_user_can_access();
         },
     ] );
 } );
