@@ -97,10 +97,10 @@ $calendar_base_url = $calendar_base_url ?? '';
                                 'value_fn' => function( $b ) { return $b->guest_name ?? ''; },
                             ],
                             [
-                                'label' => 'Telephone Number',
-                                'class' => 'telephone-row',
+                                'label' => 'Channel',
+                                'class' => 'channel-row',
                                 'type'  => 'detail',
-                                'value_fn' => function( $b ) { return $b->phone ?? ''; },
+                                'value_fn' => function( $b ) { return $b->channel ?? ''; },
                             ],
                             [
                                 'label' => 'Occupancy',
@@ -109,9 +109,9 @@ $calendar_base_url = $calendar_base_url ?? '';
                                 'value_fn' => function( $b ) { return $b->occupancy_str ?? ''; },
                             ],
                             [
-                                'label' => "Table d'hôte",
+                                'label' => 'Dinner',
                                 'class' => 'dinner-row',
-                                'type'  => 'detail',
+                                'type'  => 'detail editable-number',
                                 'value_fn' => function( $b ) { return ! empty( $b->dinner ) ? $b->dinner : ''; },
                             ],
                             [
@@ -162,7 +162,7 @@ $calendar_base_url = $calendar_base_url ?? '';
                                     $cell_classes[] = 'has-booking';
                                 }
                             ?>
-                                <td class="<?php echo esc_attr( implode( ' ', $cell_classes ) ); ?>" data-room-color="<?php echo esc_attr( $color ); ?>"><?php echo esc_html( $value ); ?></td>
+                                <td class="<?php echo esc_attr( implode( ' ', $cell_classes ) ); ?>" data-room-color="<?php echo esc_attr( $color ); ?>"><?php if ( 'dinner-row' === $row['class'] && $booking ) : ?><input type="number" class="calendar-dinner-input" min="0" step="1" value="<?php echo esc_attr( is_scalar( $value ) ? (string) $value : '' ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Dinner count for room %1$s on %2$s', 'lgf-calendar-view' ), $room->title, $date_str ) ); ?>" /><?php else : ?><?php echo esc_html( $value ); ?><?php endif; ?></td>
                             <?php endforeach; ?>
                         </tr>
                     <?php endforeach; ?>

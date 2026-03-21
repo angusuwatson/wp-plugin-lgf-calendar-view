@@ -385,11 +385,8 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
 function lgf_calendar_view_get_month_tabs( $month, $year ) {
     $tabs = [];
 
-    for ( $offset = -2; $offset <= 2; $offset++ ) {
-        $date = new DateTime( sprintf( '%04d-%02d-01', $year, $month ) );
-        if ( 0 !== $offset ) {
-            $date->modify( sprintf( '%+d month', $offset ) );
-        }
+    for ( $month_index = 1; $month_index <= 12; $month_index++ ) {
+        $date = new DateTime( sprintf( '%04d-%02d-01', $year, $month_index ) );
 
         $tabs[] = [
             'month'   => (int) $date->format( 'n' ),
