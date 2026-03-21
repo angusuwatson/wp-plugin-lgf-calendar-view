@@ -29,14 +29,16 @@ function lgf_calendar_view_user_can_access() {
     return is_user_logged_in() && current_user_can( 'manage_options' );
 }
 
-function lgf_calendar_view_enqueue_shared_assets() {
+function lgf_calendar_view_enqueue_shared_assets( $context = 'frontend' ) {
     wp_register_style( 'lgf-calendar-view', plugin_dir_url( __FILE__ ) . 'assets/style.css', [], '1.4' );
     wp_enqueue_style( 'lgf-calendar-view' );
 
-    wp_register_script( 'lgf-calendar-view', plugin_dir_url( __FILE__ ) . 'assets/calendar-navigation.js', [ 'jquery' ], '1.1', true );
+    wp_register_script( 'lgf-calendar-view', plugin_dir_url( __FILE__ ) . 'assets/calendar-navigation.js', [ 'jquery' ], '1.2', true );
     wp_localize_script( 'lgf-calendar-view', 'lgfCalendar', [
         'restUrl' => esc_url_raw( rest_url( 'lgf-calendar/v1/table' ) ),
         'nonce'   => wp_create_nonce( 'wp_rest' ),
+        'context' => $context,
+        'adminPageUrl' => admin_url( 'admin.php?page=lgf-calendar-view' ),
     ] );
     wp_enqueue_script( 'lgf-calendar-view' );
 }
@@ -53,7 +55,7 @@ function lgf_calendar_view_enqueue_assets() {
         return;
     }
 
-    lgf_calendar_view_enqueue_shared_assets();
+    lgf_calendar_view_enqueue_shared_assets( 'frontend' );
 }
 
 add_action( 'admin_enqueue_scripts', 'lgf_calendar_view_enqueue_admin_assets' );
@@ -66,7 +68,7 @@ function lgf_calendar_view_enqueue_admin_assets( $hook_suffix ) {
         return;
     }
 
-    lgf_calendar_view_enqueue_shared_assets();
+    lgf_calendar_view_enqueue_shared_assets( 'admin' );
 }
 
 /**
@@ -483,18 +485,23 @@ function lgf_calendar_view_render_admin_page() {
 
     echo '<div class="wrap">';
     echo '<h1>' . esc_html__( 'LGF Calendar View', 'lgf-calendar-view' ) . '</h1>';
-    echo lgf_calendar_view_render_calendar( $calendar_data );
+    echo lgf_calendar_view_render_calendar( $calendar_data, 'admin' );
     echo '</div>';
 }
 
 // Shortcode to display the calendar view
 add_shortcode( 'lgf_calendar_view', 'lgf_calendar_view_shortcode' );
 
-function lgf_calendar_view_render_calendar( $calendar_data ) {
+function lgf_calendar_view_render_calendar( $calendar_data, $context = 'frontend' ) {
     $template = locate_template( 'lgf-calendar-view/booking-view.php' );
     if ( ! $template ) {
         $template = plugin_dir_path( __FILE__ ) . 'templates/booking-view.php';
     }
+
+    $calendar_context = $context;
+    $calendar_base_url = 'admin' === $context
+        ? admin_url( 'admin.php?page=lgf-calendar-view' )
+        : get_permalink();
 
     ob_start();
     include $template;
@@ -516,7 +523,7 @@ function lgf_calendar_view_shortcode( $atts ) {
 
     $calendar_data = lgf_calendar_view_get_calendar_data( $month, $year );
 
-    return lgf_calendar_view_render_calendar( $calendar_data );
+    return lgf_calendar_view_render_calendar( $calendar_data, 'frontend' );
 }
 
 /**
@@ -549,14 +556,16 @@ add_action( 'rest_api_init', function() {
 function lgf_calendar_rest_table( WP_REST_Request $request ) {
     $month = intval( $request->get_param( 'month' ) );
     $year  = intval( $request->get_param( 'year' ) );
+    $context = $request->get_param( 'context' );
+    $context = 'admin' === $context ? 'admin' : 'frontend';
 
-    error_log( "LGF REST: requested month=$month year=$year" );
+    error_log( "LGF REST: requested month=$month year=$year context=$context" );
 
     $calendar_data = lgf_calendar_view_get_calendar_data( $month, $year );
 
     error_log( 'LGF REST: rooms count=' . count( $calendar_data['rooms'] ) . ', matrix rooms=' . count( $calendar_data['matrix'] ) );
 
-    $html = lgf_calendar_view_render_calendar( $calendar_data );
+    $html = lgf_calendar_view_render_calendar( $calendar_data, $context );
 
     return rest_ensure_response( [ 'html' => $html ] );
 }

@@ -84,7 +84,8 @@
                 },
                 data: {
                     month: month,
-                    year: year
+                    year: year,
+                    context: lgfCalendar.context || 'frontend'
                 },
                 success: function(response) {
                     if (response && response.html) {
@@ -112,11 +113,16 @@
         }
 
         $(document).on('click', '.lgf-calendar-container .calendar-nav .button, .lgf-calendar-container .calendar-month-tab', function(e) {
-            e.preventDefault();
             var href = $(this).attr('href');
             if (!href) {
                 return;
             }
+
+            if (lgfCalendar.context === 'admin') {
+                return;
+            }
+
+            e.preventDefault();
 
             var url = new URL(href, window.location.origin);
             var month = url.searchParams.get('month');

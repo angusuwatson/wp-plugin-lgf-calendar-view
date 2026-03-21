@@ -8,13 +8,14 @@ $days_in_month = $calendar_data['days_in_month'];
 $days = $calendar_data['days'];
 $summary = lgf_calendar_view_build_daily_summary( $calendar_data );
 $month_tabs = lgf_calendar_view_get_month_tabs( $month, $year );
+$calendar_base_url = $calendar_base_url ?? '';
 ?>
 <div class="lgf-calendar-container">
     <div class="calendar-month-tabs" role="tablist" aria-label="Calendar months">
         <?php foreach ( $month_tabs as $tab ) : ?>
             <a
                 class="calendar-month-tab<?php echo $tab['current'] ? ' is-current' : ''; ?>"
-                href="<?php echo esc_url( add_query_arg( [ 'month' => $tab['month'], 'year' => $tab['year'] ] ) ); ?>"
+                href="<?php echo esc_url( add_query_arg( [ 'month' => $tab['month'], 'year' => $tab['year'] ], $calendar_base_url ) ); ?>"
                 data-month="<?php echo esc_attr( $tab['month'] ); ?>"
                 data-year="<?php echo esc_attr( $tab['year'] ); ?>"
             ><?php echo esc_html( $tab['label'] ); ?></a>
@@ -28,9 +29,9 @@ $month_tabs = lgf_calendar_view_get_month_tabs( $month, $year );
         $next = new DateTime( sprintf( '%04d-%02d-01', $year, $month ) );
         $next->modify( '+1 month' );
         ?>
-        <a class="button" href="<?php echo esc_url( add_query_arg( [ 'month' => $prev->format( 'n' ), 'year' => $prev->format( 'Y' ) ] ) ); ?>">&laquo; <?php esc_html_e( 'Previous', 'lgf-calendar-view' ); ?></a>
+        <a class="button" href="<?php echo esc_url( add_query_arg( [ 'month' => $prev->format( 'n' ), 'year' => $prev->format( 'Y' ) ], $calendar_base_url ) ); ?>">&laquo; <?php esc_html_e( 'Previous', 'lgf-calendar-view' ); ?></a>
         <span class="current-month"><?php echo esc_html( date_i18n( 'F Y', mktime( 0, 0, 0, $month, 1, $year ) ) ); ?></span>
-        <a class="button" href="<?php echo esc_url( add_query_arg( [ 'month' => $next->format( 'n' ), 'year' => $next->format( 'Y' ) ] ) ); ?>"><?php esc_html_e( 'Next', 'lgf-calendar-view' ); ?> &raquo;</a>
+        <a class="button" href="<?php echo esc_url( add_query_arg( [ 'month' => $next->format( 'n' ), 'year' => $next->format( 'Y' ) ], $calendar_base_url ) ); ?>"><?php esc_html_e( 'Next', 'lgf-calendar-view' ); ?> &raquo;</a>
     </div>
 
     <div class="lgf-calendar-view">
