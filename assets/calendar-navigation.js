@@ -116,7 +116,8 @@
                         if (response && typeof response.extras_formula !== 'undefined') {
                             $input.val(response.extras_formula || '');
                         }
-                        $editor.find('.calendar-extras-total').text(response && response.extras_total !== null ? Number(response.extras_total).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €' : '');
+                        $editor.find('.calendar-extras-display').text(response && response.extras_total !== null ? Number(response.extras_total).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €' : '');
+                        $editor.removeClass('is-editing');
                     }
                 },
                 error: function(xhr) {
@@ -148,6 +149,12 @@
 
         $(document).on('input', '.lgf-calendar-container .calendar-booking-input', function() {
             setSavingState($(this), 'done');
+        });
+
+        $(document).on('click', '.lgf-calendar-container .calendar-extras-display', function() {
+            var $editor = $(this).closest('.calendar-extras-editor');
+            $editor.addClass('is-editing');
+            $editor.find('.calendar-extras-input').trigger('focus').trigger('select');
         });
 
         $(document).on('change blur', '.lgf-calendar-container .calendar-booking-input', function() {
