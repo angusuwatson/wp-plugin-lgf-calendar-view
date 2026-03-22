@@ -257,61 +257,85 @@ function lgf_calendar_view_evaluate_extras_formula( $formula ) {
     ];
 }
 
+function lgf_calendar_view_extract_tarif_from_room_breakdown( $room_breakdown ) {
+    if ( ! is_array( $room_breakdown ) ) {
+        return '';
+    }
+
+    if ( isset( $room_breakdown['room']['discount_total'] ) && '' !== $room_breakdown['room']['discount_total'] ) {
+        return (float) $room_breakdown['room']['discount_total'];
+    }
+    if ( isset( $room_breakdown['room']['total'] ) && '' !== $room_breakdown['room']['total'] ) {
+        return (float) $room_breakdown['room']['total'];
+    }
+    if ( isset( $room_breakdown['discount_total'] ) && '' !== $room_breakdown['discount_total'] ) {
+        return (float) $room_breakdown['discount_total'];
+    }
+    if ( isset( $room_breakdown['total'] ) && '' !== $room_breakdown['total'] ) {
+        return (float) $room_breakdown['total'];
+    }
+
+    return '';
+}
+
 function lgf_calendar_view_extract_tarif( $booking, $reserved_room ) {
     $tarif = '';
 
     if ( $reserved_room && method_exists( $reserved_room, 'getLastRoomPriceBreakdown' ) ) {
-        $room_breakdown = $reserved_room->getLastRoomPriceBreakdown();
-        if ( is_array( $room_breakdown ) ) {
-            if ( isset( $room_breakdown['room']['discount_total'] ) && '' !== $room_breakdown['room']['discount_total'] ) {
-                return (float) $room_breakdown['room']['discount_total'];
-            }
-            if ( isset( $room_breakdown['room']['total'] ) && '' !== $room_breakdown['room']['total'] ) {
-                return (float) $room_breakdown['room']['total'];
-            }
+        $tarif = lgf_calendar_view_extract_tarif_from_room_breakdown( $reserved_room->getLastRoomPriceBreakdown() );
+        if ( '' !== $tarif ) {
+            return $tarif;
         }
     }
 
     if ( class_exists( '\MPHB\Utils\PriceBreakdownHelper' ) && method_exists( '\MPHB\Utils\PriceBreakdownHelper', 'getLastRoomPriceBreakdown' ) ) {
-        $room_breakdown = \MPHB\Utils\PriceBreakdownHelper::getLastRoomPriceBreakdown( $reserved_room );
-        if ( is_array( $room_breakdown ) ) {
-            if ( isset( $room_breakdown['room']['discount_total'] ) && '' !== $room_breakdown['room']['discount_total'] ) {
-                return (float) $room_breakdown['room']['discount_total'];
-            }
-            if ( isset( $room_breakdown['room']['total'] ) && '' !== $room_breakdown['room']['total'] ) {
-                return (float) $room_breakdown['room']['total'];
-            }
+        $tarif = lgf_calendar_view_extract_tarif_from_room_breakdown( \MPHB\Utils\PriceBreakdownHelper::getLastRoomPriceBreakdown( $reserved_room ) );
+        if ( '' !== $tarif ) {
+            return $tarif;
         }
     }
 
+    $breakdown = null;
     if ( $booking && method_exists( $booking, 'getLastPriceBreakdown' ) ) {
         $breakdown = $booking->getLastPriceBreakdown();
-        if ( is_array( $breakdown ) && ! empty( $breakdown['rooms'] ) && is_array( $breakdown['rooms'] ) ) {
-            $reserved_room_id = $reserved_room && method_exists( $reserved_room, 'getId' ) ? (int) $reserved_room->getId() : 0;
-            foreach ( $breakdown['rooms'] as $room_line ) {
-                if ( isset( $room_line['reserved_room_id'] ) && (int) $room_line['reserved_room_id'] === $reserved_room_id ) {
-                    if ( isset( $room_line['room']['discount_total'] ) && '' !== $room_line['room']['discount_total'] ) {
-                        return (float) $room_line['room']['discount_total'];
-                    }
-                    if ( isset( $room_line['room']['total'] ) && '' !== $room_line['room']['total'] ) {
-                        return (float) $room_line['room']['total'];
-                    }
+    }
+
+    if ( ! is_array( $breakdown ) && $booking && method_exists( $booking, 'getId' ) ) {
+        $breakdown = get_post_meta( $booking->getId(), '_mphb_booking_price_breakdown', true );
+    }
+
+    if ( is_array( $breakdown ) && ! empty( $breakdown['rooms'] ) && is_array( $breakdown['rooms'] ) ) {
+        $reserved_room_id = $reserved_room && method_exists( $reserved_room, 'getId' ) ? (int) $reserved_room->getId() : 0;
+        $room_id = $reserved_room && method_exists( $reserved_room, 'getRoomId' ) ? (int) $reserved_room->getRoomId() : 0;
+
+        foreach ( $breakdown['rooms'] as $room_line ) {
+            if ( isset( $room_line['reserved_room_id'] ) && (int) $room_line['reserved_room_id'] === $reserved_room_id ) {
+                $tarif = lgf_calendar_view_extract_tarif_from_room_breakdown( $room_line );
+                if ( '' !== $tarif ) {
+                    return $tarif;
                 }
             }
+        }
 
-            if ( 1 === count( $breakdown['rooms'] ) ) {
-                $room_line = reset( $breakdown['rooms'] );
-                if ( isset( $room_line['room']['discount_total'] ) && '' !== $room_line['room']['discount_total'] ) {
-                    return (float) $room_line['room']['discount_total'];
+        foreach ( $breakdown['rooms'] as $room_line ) {
+            if ( isset( $room_line['room_id'] ) && (int) $room_line['room_id'] === $room_id ) {
+                $tarif = lgf_calendar_view_extract_tarif_from_room_breakdown( $room_line );
+                if ( '' !== $tarif ) {
+                    return $tarif;
                 }
-                if ( isset( $room_line['room']['total'] ) && '' !== $room_line['room']['total'] ) {
-                    return (float) $room_line['room']['total'];
-                }
+            }
+        }
+
+        if ( 1 === count( $breakdown['rooms'] ) ) {
+            $room_line = reset( $breakdown['rooms'] );
+            $tarif = lgf_calendar_view_extract_tarif_from_room_breakdown( $room_line );
+            if ( '' !== $tarif ) {
+                return $tarif;
             }
         }
     }
 
-    return $tarif;
+    return '';
 }
 
 function lgf_calendar_view_build_booking_payload( $booking, $reserved_room ) {

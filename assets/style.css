@@ -150,7 +150,7 @@
 
 .lgf-calendar-view .calendar-grid .room-name-row .room-label-cell { z-index: 5; }
 .lgf-calendar-view .calendar-grid .room-label-cell.detail,
-.lgf-calendar-view .calendar-grid td.calendar-cell.detail.has-booking { background: var(--room-fill, #ddd); }
+.lgf-calendar-view .calendar-grid td.calendar-cell.detail { background: var(--room-fill, #ddd); }
 
 .lgf-calendar-view .calendar-grid .guest-row .room-label-cell,
 .lgf-calendar-view .calendar-grid .guest-row td,
