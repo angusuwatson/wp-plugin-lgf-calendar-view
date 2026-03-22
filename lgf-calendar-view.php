@@ -257,6 +257,63 @@ function lgf_calendar_view_evaluate_extras_formula( $formula ) {
     ];
 }
 
+function lgf_calendar_view_extract_tarif( $booking, $reserved_room ) {
+    $tarif = '';
+
+    if ( $reserved_room && method_exists( $reserved_room, 'getLastRoomPriceBreakdown' ) ) {
+        $room_breakdown = $reserved_room->getLastRoomPriceBreakdown();
+        if ( is_array( $room_breakdown ) ) {
+            if ( isset( $room_breakdown['room']['discount_total'] ) && '' !== $room_breakdown['room']['discount_total'] ) {
+                return (float) $room_breakdown['room']['discount_total'];
+            }
+            if ( isset( $room_breakdown['room']['total'] ) && '' !== $room_breakdown['room']['total'] ) {
+                return (float) $room_breakdown['room']['total'];
+            }
+        }
+    }
+
+    if ( class_exists( '\MPHB\Utils\PriceBreakdownHelper' ) && method_exists( '\MPHB\Utils\PriceBreakdownHelper', 'getLastRoomPriceBreakdown' ) ) {
+        $room_breakdown = \MPHB\Utils\PriceBreakdownHelper::getLastRoomPriceBreakdown( $reserved_room );
+        if ( is_array( $room_breakdown ) ) {
+            if ( isset( $room_breakdown['room']['discount_total'] ) && '' !== $room_breakdown['room']['discount_total'] ) {
+                return (float) $room_breakdown['room']['discount_total'];
+            }
+            if ( isset( $room_breakdown['room']['total'] ) && '' !== $room_breakdown['room']['total'] ) {
+                return (float) $room_breakdown['room']['total'];
+            }
+        }
+    }
+
+    if ( $booking && method_exists( $booking, 'getLastPriceBreakdown' ) ) {
+        $breakdown = $booking->getLastPriceBreakdown();
+        if ( is_array( $breakdown ) && ! empty( $breakdown['rooms'] ) && is_array( $breakdown['rooms'] ) ) {
+            $reserved_room_id = $reserved_room && method_exists( $reserved_room, 'getId' ) ? (int) $reserved_room->getId() : 0;
+            foreach ( $breakdown['rooms'] as $room_line ) {
+                if ( isset( $room_line['reserved_room_id'] ) && (int) $room_line['reserved_room_id'] === $reserved_room_id ) {
+                    if ( isset( $room_line['room']['discount_total'] ) && '' !== $room_line['room']['discount_total'] ) {
+                        return (float) $room_line['room']['discount_total'];
+                    }
+                    if ( isset( $room_line['room']['total'] ) && '' !== $room_line['room']['total'] ) {
+                        return (float) $room_line['room']['total'];
+                    }
+                }
+            }
+
+            if ( 1 === count( $breakdown['rooms'] ) ) {
+                $room_line = reset( $breakdown['rooms'] );
+                if ( isset( $room_line['room']['discount_total'] ) && '' !== $room_line['room']['discount_total'] ) {
+                    return (float) $room_line['room']['discount_total'];
+                }
+                if ( isset( $room_line['room']['total'] ) && '' !== $room_line['room']['total'] ) {
+                    return (float) $room_line['room']['total'];
+                }
+            }
+        }
+    }
+
+    return $tarif;
+}
+
 function lgf_calendar_view_build_booking_payload( $booking, $reserved_room ) {
     $customer = method_exists( $booking, 'getCustomer' ) ? $booking->getCustomer() : null;
 
@@ -277,11 +334,8 @@ function lgf_calendar_view_build_booking_payload( $booking, $reserved_room ) {
     $is_imported = method_exists( $booking, 'isImported' ) ? (bool) $booking->isImported() : ! empty( get_post_meta( $booking->getId(), '_mphb_sync_id', true ) );
 
     $tarif = '';
-    if ( ! $is_imported && $reserved_room && method_exists( $reserved_room, 'getLastRoomPriceBreakdown' ) ) {
-        $room_breakdown = $reserved_room->getLastRoomPriceBreakdown();
-        if ( is_array( $room_breakdown ) && isset( $room_breakdown['room']['discount_total'] ) ) {
-            $tarif = (float) $room_breakdown['room']['discount_total'];
-        }
+    if ( ! $is_imported ) {
+        $tarif = lgf_calendar_view_extract_tarif( $booking, $reserved_room );
     }
 
     $reserved_room_id = $reserved_room && method_exists( $reserved_room, 'getId' ) ? (int) $reserved_room->getId() : 0;
@@ -293,6 +347,20 @@ function lgf_calendar_view_build_booking_payload( $booking, $reserved_room ) {
 
     $extras_formula = isset( $overlay['extras_formula'] ) ? (string) $overlay['extras_formula'] : '';
     $extras_total   = isset( $overlay['extras_total'] ) && '' !== $overlay['extras_total'] ? (float) $overlay['extras_total'] : null;
+
+    $created_date = '';
+    if ( method_exists( $booking, 'getPostId' ) ) {
+        $created_timestamp = get_post_time( 'U', false, $booking->getPostId() );
+        if ( $created_timestamp ) {
+            $created_date = date_i18n( 'Y-m-d', $created_timestamp );
+        }
+    }
+    if ( '' === $created_date && method_exists( $booking, 'getId' ) ) {
+        $created_timestamp = get_post_time( 'U', false, $booking->getId() );
+        if ( $created_timestamp ) {
+            $created_date = date_i18n( 'Y-m-d', $created_timestamp );
+        }
+    }
 
     return (object) [
         'id'                => method_exists( $booking, 'getId' ) ? (int) $booking->getId() : 0,
@@ -306,8 +374,9 @@ function lgf_calendar_view_build_booking_payload( $booking, $reserved_room ) {
         'adults'            => $effective_adults,
         'children'          => $effective_children,
         'occupancy_str'     => lgf_calendar_view_format_occupancy( $effective_adults, $effective_children ),
-        'channel'           => $is_imported ? 'I' : 'W',
+        'channel'           => trim( ( $is_imported ? 'I' : 'W' ) . ( $created_date ? ' ' . $created_date : '' ) ),
         'channel_label'     => $is_imported ? 'Imported' : 'Website',
+        'created_date'      => $created_date,
         'is_imported'       => $is_imported,
         'tarif'             => isset( $overlay['manual_tarif'] ) && '' !== $overlay['manual_tarif'] ? (float) $overlay['manual_tarif'] : $tarif,
         'commission'        => isset( $overlay['manual_commission'] ) && '' !== $overlay['manual_commission'] ? (float) $overlay['manual_commission'] : '',
