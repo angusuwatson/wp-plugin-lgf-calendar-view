@@ -123,11 +123,6 @@
                 error: function(xhr) {
                     console.error(xhr.responseText);
                     setSavingState($input, 'error');
-                    var message = 'Save failed.';
-                    if (xhr.responseJSON && xhr.responseJSON.message) {
-                        message = xhr.responseJSON.message;
-                    }
-                    alert(message);
                 }
             });
         }

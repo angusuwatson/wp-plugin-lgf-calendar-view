@@ -52,15 +52,16 @@
 .lgf-calendar-view .calendar-grid th,
 .lgf-calendar-view .calendar-grid td {
     border: 1px solid #b7b7b7;
-    padding: 1px 4px;
+    padding: 0 3px;
     width: 106px;
     vertical-align: middle;
-    height: 26px;
-    line-height: 1.05;
+    height: 14px;
+    line-height: 1.0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     box-sizing: border-box;
+    color: #2f2f2f;
 }
 
 .lgf-calendar-view .calendar-grid th { background: #fffdf8; text-align: center; font-weight: 400; }
@@ -78,12 +79,12 @@
 .lgf-calendar-view .calendar-grid .room-header-spacer { background: #f8f7f2; }
 .lgf-calendar-view .calendar-grid .month-row th,
 .lgf-calendar-view .calendar-grid .weekday-row th { background: #faf8f1; }
-.lgf-calendar-view .calendar-grid .calendar-month-name,
 .lgf-calendar-view .calendar-grid .calendar-day-number,
-.lgf-calendar-view .calendar-grid .calendar-weekday { display: block; }
-.lgf-calendar-view .calendar-grid .calendar-month-name { color: #222; font-size: 12px; margin-bottom: 1px; }
-.lgf-calendar-view .calendar-grid .calendar-day-number { color: #111; font-size: 12px; font-weight: 400; }
-.lgf-calendar-view .calendar-grid .calendar-weekday { font-size: 12px; color: #111; }
+.lgf-calendar-view .calendar-grid .calendar-weekday,
+.lgf-calendar-view .calendar-grid .calendar-corner-month { display: block; }
+.lgf-calendar-view .calendar-grid .calendar-corner-month { color: #2f2f2f; font-size: 12px; font-weight: 700; text-align: left; }
+.lgf-calendar-view .calendar-grid .calendar-day-number { color: #2f2f2f; font-size: 12px; font-weight: 400; }
+.lgf-calendar-view .calendar-grid .calendar-weekday { font-size: 12px; color: #2f2f2f; }
 .lgf-calendar-view .calendar-grid .room-label-cell,
 .lgf-calendar-view .calendar-grid td.calendar-cell { background: #fff; }
 
@@ -92,7 +93,7 @@
     background: #fffdf8;
     border-top: 1px solid #8d8d8d;
     border-bottom: 2px solid #000;
-    height: 26px;
+    height: 14px;
 }
 
 .lgf-calendar-view .calendar-grid .notes-label-cell { background: #f3f1e7; font-weight: 700; z-index: 5; }
@@ -102,19 +103,19 @@
 .lgf-calendar-view .calendar-grid .calendar-booking-input {
     width: 100%;
     height: 100%;
-    min-height: 24px;
+    min-height: 12px;
     border: 0;
     background: transparent;
-    padding: 2px 4px;
+    padding: 0 3px;
     font: inherit;
-    color: #222;
+    color: #2f2f2f;
     box-sizing: border-box;
 }
 
 .lgf-calendar-view .calendar-grid .room-header-note-input {
     color: #fff;
     font-weight: 700;
-    min-height: 28px;
+    min-height: 12px;
 }
 
 .lgf-calendar-view .calendar-grid .room-header-note-input::placeholder {
@@ -135,10 +136,16 @@
 
 .lgf-calendar-view .calendar-grid .room-name-row .room-label-cell,
 .lgf-calendar-view .calendar-grid .room-name-row td.calendar-cell {
-    background: #2f2f2f;
+    background: rgba(0, 0, 0, 0.85);
     color: #fff;
     font-weight: 700;
 }
+
+.lgf-calendar-view .calendar-grid .room-name-row td[data-room-color="#cc99ff"] { background: linear-gradient(rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.85)), #b885ea; }
+.lgf-calendar-view .calendar-grid .room-name-row td[data-room-color="#b4c7e7"] { background: linear-gradient(rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.85)), #a4b7d8; }
+.lgf-calendar-view .calendar-grid .room-name-row td[data-room-color="#a9d18e"] { background: linear-gradient(rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.85)), #a9cf90; }
+.lgf-calendar-view .calendar-grid .room-name-row td[data-room-color="#ffe699"] { background: linear-gradient(rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.85)), #fde39b; }
+.lgf-calendar-view .calendar-grid .room-name-row td[data-room-color="#f4b183"] { background: linear-gradient(rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.85)), #f4b07d; }
 
 .lgf-calendar-view .calendar-grid .room-name-row .room-label-cell { z-index: 5; }
 .lgf-calendar-view .calendar-grid .room-label-cell.detail,
@@ -240,7 +247,7 @@
 
 .lgf-calendar-view .calendar-grid .room-name-row td,
 .lgf-calendar-view .calendar-grid .extras-row td,
-.lgf-calendar-view .calendar-grid .extras-row th { height: 26px; }
+.lgf-calendar-view .calendar-grid .extras-row th { height: 14px; }
 
 .calendar-occupancy-editor {
     display: flex;
@@ -249,10 +256,10 @@
 }
 
 .calendar-occupancy-editor .occupancy-part-input {
-    width: 34px;
-    min-height: 22px;
+    width: 28px;
+    min-height: 12px;
     text-align: center;
-    padding: 1px 2px;
+    padding: 0 1px;
 }
 
 .calendar-occupancy-editor .occupancy-separator { font-size: 10px; font-weight: 700; }
@@ -267,10 +274,10 @@
 .calendar-extras-display {
     display: block;
     width: 100%;
-    min-height: 24px;
-    line-height: 24px;
-    padding: 0 4px;
-    color: #222;
+    min-height: 12px;
+    line-height: 12px;
+    padding: 0 3px;
+    color: #2f2f2f;
     box-sizing: border-box;
     cursor: text;
     overflow: hidden;
@@ -324,6 +331,6 @@
     .calendar-month-tab { min-width: 48px; padding: 7px 6px; }
     .lgf-calendar-view .calendar-grid { min-width: 1950px; font-size: 11px; }
     .lgf-calendar-view .calendar-grid th,
-    .lgf-calendar-view .calendar-grid td { width: 86px; font-size: 10px; height: 16px; }
+    .lgf-calendar-view .calendar-grid td { width: 86px; font-size: 10px; height: 14px; }
     .lgf-calendar-view .calendar-grid .sticky-col { min-width: 150px; width: 150px; max-width: 150px; }
 }

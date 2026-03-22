@@ -22,10 +22,9 @@ $calendar_base_url = $calendar_base_url ?? '';
         <table class="wp-list-table widefat fixed striped calendar-grid">
             <thead>
                 <tr class="header-row month-row">
-                    <th class="label sticky-col room-header-spacer"></th>
+                    <th class="label sticky-col room-header-spacer"><span class="calendar-corner-month"><?php echo esc_html( date_i18n( 'F', mktime( 0, 0, 0, $month, 1, $year ) ) ); ?></span></th>
                     <?php foreach ( $days as $day ) : ?>
                         <th>
-                            <span class="calendar-month-name"><?php echo esc_html( date_i18n( 'F', mktime( 0, 0, 0, $month, $day, $year ) ) ); ?></span>
                             <span class="calendar-day-number"><?php echo esc_html( $day ); ?></span>
                         </th>
                     <?php endforeach; ?>
