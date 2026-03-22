@@ -564,7 +564,6 @@ function lgf_calendar_view_render_admin_page() {
     $calendar_data = lgf_calendar_view_get_calendar_data( $month, $year );
 
     echo '<div class="wrap">';
-    echo '<h1>' . esc_html__( 'LGF Calendar View', 'lgf-calendar-view' ) . '</h1>';
     echo lgf_calendar_view_render_calendar( $calendar_data, 'admin' );
     echo '</div>';
 }

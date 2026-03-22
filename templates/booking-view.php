@@ -18,18 +18,6 @@ $calendar_base_url = $calendar_base_url ?? '';
         <?php endforeach; ?>
     </div>
 
-    <div class="calendar-nav">
-        <?php
-        $prev = new DateTime( sprintf( '%04d-%02d-01', $year, $month ) );
-        $prev->modify( '-1 month' );
-        $next = new DateTime( sprintf( '%04d-%02d-01', $year, $month ) );
-        $next->modify( '+1 month' );
-        ?>
-        <a class="button" href="<?php echo esc_url( add_query_arg( [ 'month' => $prev->format( 'n' ), 'year' => $prev->format( 'Y' ) ], $calendar_base_url ) ); ?>">&laquo; <?php esc_html_e( 'Previous', 'lgf-calendar-view' ); ?></a>
-        <span class="current-month"><?php echo esc_html( date_i18n( 'F Y', mktime( 0, 0, 0, $month, 1, $year ) ) ); ?></span>
-        <a class="button" href="<?php echo esc_url( add_query_arg( [ 'month' => $next->format( 'n' ), 'year' => $next->format( 'Y' ) ], $calendar_base_url ) ); ?>"><?php esc_html_e( 'Next', 'lgf-calendar-view' ); ?> &raquo;</a>
-    </div>
-
     <div class="lgf-calendar-view">
         <table class="wp-list-table widefat fixed striped calendar-grid">
             <thead>
@@ -66,8 +54,7 @@ $calendar_base_url = $calendar_base_url ?? '';
                         $color = $room->color ?? '#ccc';
                         $room_number = $index + 1;
                         $rows = [
-                            [ 'label' => $room_number . ' - ' . $room->title, 'class' => 'room-name-row', 'type' => 'title', 'field' => '' ],
-                            [ 'label' => '', 'class' => 'booking-note-row', 'type' => 'detail editable-text', 'field' => 'booking_note' ],
+                            [ 'label' => $room_number . ' - ' . $room->title, 'class' => 'room-name-row', 'type' => 'title', 'field' => 'booking_note' ],
                             [ 'label' => 'Name', 'class' => 'guest-row', 'type' => 'detail editable-text', 'field' => 'manual_guest_name', 'display_fn' => function( $b ) { return $b->guest_name ?? ''; } ],
                             [ 'label' => 'Channel', 'class' => 'channel-row', 'type' => 'detail', 'field' => '', 'display_fn' => function( $b ) { return $b->channel ?? ''; } ],
                             [ 'label' => 'Occupancy', 'class' => 'occupancy-row', 'type' => 'detail editable-occupancy', 'field' => 'occupancy', 'display_fn' => function( $b ) { return $b->occupancy_str ?? ''; } ],
@@ -99,8 +86,8 @@ $calendar_base_url = $calendar_base_url ?? '';
                                 }
                             ?>
                                 <td class="<?php echo esc_attr( implode( ' ', $cell_classes ) ); ?>" data-room-color="<?php echo esc_attr( $color ); ?>">
-                                    <?php if ( $booking && 'booking_note-row' === $row['class'] ) : ?>
-                                        <input type="text" class="calendar-booking-input calendar-booking-note-input" data-field="booking_note" data-booking-id="<?php echo esc_attr( $booking->id ); ?>" data-room-id="<?php echo esc_attr( $booking->room_id ); ?>" data-reserved-room-id="<?php echo esc_attr( $booking->reserved_room_id ); ?>" value="<?php echo esc_attr( $booking->booking_note ?? '' ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Booking note for room %1$s on %2$s', 'lgf-calendar-view' ), $room->title, $date_str ) ); ?>" />
+                                    <?php if ( $booking && 'room-name-row' === $row['class'] ) : ?>
+                                        <input type="text" class="calendar-booking-input calendar-booking-note-input room-header-note-input" data-field="booking_note" data-booking-id="<?php echo esc_attr( $booking->id ); ?>" data-room-id="<?php echo esc_attr( $booking->room_id ); ?>" data-reserved-room-id="<?php echo esc_attr( $booking->reserved_room_id ); ?>" value="<?php echo esc_attr( $booking->booking_note ?? '' ); ?>" placeholder="<?php echo esc_attr( $room_number . ' - ' . $room->title ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Booking note for room %1$s on %2$s', 'lgf-calendar-view' ), $room->title, $date_str ) ); ?>" />
                                     <?php elseif ( $booking && 'guest-row' === $row['class'] ) : ?>
                                         <input type="text" class="calendar-booking-input" data-field="manual_guest_name" data-booking-id="<?php echo esc_attr( $booking->id ); ?>" data-room-id="<?php echo esc_attr( $booking->room_id ); ?>" data-reserved-room-id="<?php echo esc_attr( $booking->reserved_room_id ); ?>" value="<?php echo esc_attr( $booking->guest_name ?? '' ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Guest name for room %1$s on %2$s', 'lgf-calendar-view' ), $room->title, $date_str ) ); ?>" />
                                     <?php elseif ( $booking && 'occupancy-row' === $row['class'] ) : ?>

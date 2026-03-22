@@ -147,6 +147,10 @@
         });
 
         $(document).on('input', '.lgf-calendar-container .calendar-booking-input', function() {
+            setSavingState($(this), 'done');
+        });
+
+        $(document).on('change blur', '.lgf-calendar-container .calendar-booking-input', function() {
             var $input = $(this);
             var reservedRoomId = $input.data('reserved-room-id') || $input.closest('.calendar-occupancy-editor').data('reserved-room-id');
             debounceSave('booking:' + reservedRoomId, function() { saveBookingOverlay($input); });
