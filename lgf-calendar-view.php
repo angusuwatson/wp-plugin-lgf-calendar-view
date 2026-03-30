@@ -107,6 +107,7 @@ function lgf_calendar_view_enqueue_shared_assets( $context = 'frontend' ) {
         'restUrl'        => esc_url_raw( rest_url( 'lgf-calendar/v1/table' ) ),
         'dailyNotesUrl'  => esc_url_raw( rest_url( 'lgf-calendar/v1/daily-note' ) ),
         'bookingUrl'     => esc_url_raw( rest_url( 'lgf-calendar/v1/booking-overlay' ) ),
+        'createInvoiceUrl' => esc_url_raw( rest_url( 'lgf-calendar/v1/create-invoice' ) ),
         'nonce'          => wp_create_nonce( 'wp_rest' ),
         'context'        => $context,
         'adminPageUrl'   => admin_url( 'admin.php?page=lgf-calendar-view' ),
@@ -645,6 +646,7 @@ function lgf_calendar_view_register_admin_menu() {
     }
 
     add_menu_page( __( 'LGF Calendar View', 'lgf-calendar-view' ), __( 'LGF Calendar', 'lgf-calendar-view' ), 'manage_options', 'lgf-calendar-view', 'lgf_calendar_view_render_admin_page', 'dashicons-calendar-alt', 58 );
+    add_submenu_page( 'lgf-calendar-view', __( 'Invoice Ninja Settings', 'lgf-calendar-view' ), __( 'Settings', 'lgf-calendar-view' ), 'manage_options', 'lgf-calendar-settings', 'lgf_calendar_view_render_settings_page' );
 }
 
 function lgf_calendar_view_render_admin_page() {
@@ -658,6 +660,41 @@ function lgf_calendar_view_render_admin_page() {
 
     echo '<div class="wrap">';
     echo lgf_calendar_view_render_calendar( $calendar_data, 'admin' );
+    echo '</div>';
+}
+
+/**
+ * Render Invoice Ninja settings page.
+ */
+function lgf_calendar_view_render_settings_page() {
+    if ( ! lgf_calendar_view_user_can_access() ) {
+        wp_die( esc_html__( 'You do not have permission to access this page.', 'lgf-calendar-view' ) );
+    }
+
+    // Handle settings save
+    if ( isset( $_POST['lgf_calendar_submit'] ) && check_admin_reference( 'lgf_calendar_settings', 'lgf_calendar_settings_nonce' ) ) {
+        $api_url = isset( $_POST['lgf_calendar_invoice_ninja_url'] ) ? esc_url_raw( trim( $_POST['lgf_calendar_invoice_ninja_url'] ) ) : '';
+        $api_token = isset( $_POST['lgf_calendar_invoice_ninja_token'] ) ? sanitize_text_field( trim( $_POST['lgf_calendar_invoice_ninja_token'] ) ) : '';
+        update_option( 'lgf_calendar_invoice_ninja_url', $api_url );
+        update_option( 'lgf_calendar_invoice_ninja_token', $api_token );
+        echo '<div class="notice notice-success"><p>' . esc_html__( 'Settings saved.', 'lgf-calendar-view' ) . '</p></div>';
+    }
+
+    $api_url = get_option( 'lgf_calendar_invoice_ninja_url', '' );
+    $api_token = get_option( 'lgf_calendar_invoice_ninja_token', '' );
+
+    echo '<div class="wrap">';
+    echo '<h1>' . esc_html__( 'Invoice Ninja Settings', 'lgf-calendar-view' ) . '</h1>';
+    echo '<form method="post">';
+    wp_nonce_field( 'lgf_calendar_settings', 'lgf_calendar_settings_nonce' );
+    echo '<table class="form-table">';
+    echo '<tr><th scope="row"><label for="lgf_calendar_invoice_ninja_url">' . esc_html__( 'Invoice Ninja URL', 'lgf-calendar-view' ) . '</label></th>';
+    echo '<td><input type="url" id="lgf_calendar_invoice_ninja_url" name="lgf_calendar_invoice_ninja_url" value="' . esc_attr( $api_url ) . '" class="regular-text" placeholder="https://your-invoice-ninja.com" /></td></tr>';
+    echo '<tr><th scope="row"><label for="lgf_calendar_invoice_ninja_token">' . esc_html__( 'API Token', 'lgf-calendar-view' ) . '</label></th>';
+    echo '<td><input type="password" id="lgf_calendar_invoice_ninja_token" name="lgf_calendar_invoice_ninja_token" value="' . esc_attr( $api_token ) . '" class="regular-text" /></td></tr>';
+    echo '</table>';
+    submit_button( __( 'Save Settings', 'lgf-calendar-view' ), 'primary', 'lgf_calendar_submit' );
+    echo '</form>';
     echo '</div>';
 }
 
@@ -715,6 +752,20 @@ add_action( 'rest_api_init', function() {
         'methods'  => 'POST',
         'callback' => 'lgf_calendar_rest_save_booking_overlay',
         'permission_callback' => function() { return lgf_calendar_view_user_can_access(); },
+    ] );
+
+    register_rest_route( 'lgf-calendar/v1', '/create-invoice', [
+        'methods'  => 'POST',
+        'callback' => 'lgf_calendar_rest_create_invoice',
+        'permission_callback' => function() { return lgf_calendar_view_user_can_access(); },
+        'args'     => [
+            'booking_id' => [
+                'validate_callback' => function( $param ) {
+                    return is_numeric( $param ) && $param > 0;
+                },
+                'required' => true,
+            ],
+        ],
     ] );
 } );
 
@@ -796,5 +847,115 @@ function lgf_calendar_rest_save_booking_overlay( WP_REST_Request $request ) {
         'extras_formula'    => $extras['formula'],
         'extras_total'      => $extras['total'],
         'occupancy_str'     => lgf_calendar_view_format_occupancy( $payload['manual_adults'] ?? 0, $payload['manual_children'] ?? 0 ),
+    ] );
+}
+
+/**
+ * Create invoice in Invoice Ninja via REST API.
+ */
+function lgf_calendar_rest_create_invoice( WP_REST_Request $request ) {
+    $booking_id = absint( $request->get_param( 'booking_id' ) );
+    if ( $booking_id <= 0 ) {
+        return new WP_Error( 'invalid_booking', __( 'Invalid booking ID.', 'lgf-calendar-view' ), [ 'status' => 400 ] );
+    }
+
+    $api_url = get_option( 'lgf_calendar_invoice_ninja_url', '' );
+    $api_token = get_option( 'lgf_calendar_invoice_ninja_token', '' );
+
+    if ( empty( $api_url ) || empty( $api_token ) ) {
+        return new WP_Error( 'invoice_ninja_not_configured', __( 'Invoice Ninja API not configured. Please set URL and token in settings.', 'lgf-calendar-view' ), [ 'status' => 500 ] );
+    }
+
+    // Fetch overlay and booking data to build invoice
+    $overlay = lgf_calendar_view_get_booking_overlay( $booking_id );
+    if ( empty( $overlay ) ) {
+        return new WP_Error( 'no_overlay_data', __( 'No overlay data for this booking.', 'lgf-calendar-view' ), [ 'status' => 404 ] );
+    }
+
+    $booking = get_post( $booking_id );
+    if ( ! $booking || 'mphb_booking' !== $booking->post_type ) {
+        return new WP_Error( 'booking_not_found', __( 'Booking not found.', 'lgf-calendar-view' ), [ 'status' => 404 ] );
+    }
+
+    // Build invoice payload
+    $client_id = get_post_meta( $booking_id, '_mphb_customer_id', true );
+    if ( ! $client_id ) {
+        return new WP_Error( 'no_customer', __( 'Booking has no associated customer.', 'lgf-calendar-view' ), [ 'status' => 400 ] );
+    }
+
+    $invoice_lines = [];
+    $total = 0.0;
+
+    // Line 1: Room tarif
+    if ( isset( $overlay['manual_tarif'] ) && '' !== $overlay['manual_tarif'] && null !== $overlay['manual_tarif'] ) {
+        $tarif = (float) $overlay['manual_tarif'];
+        $invoice_lines[] = [
+            'product_key' => 'room-charge',
+            'quantity' => 1,
+            'rate' => $tarif,
+        ];
+        $total += $tarif;
+    }
+
+    // Line 2: Extras total (from evaluated formula)
+    if ( isset( $overlay['extras_total'] ) && '' !== $overlay['extras_total'] && null !== $overlay['extras_total'] ) {
+        $extras = (float) $overlay['extras_total'];
+        $invoice_lines[] = [
+            'product_key' => 'extras-charge',
+            'quantity' => 1,
+            'rate' => $extras,
+        ];
+        $total += $extras;
+    }
+
+    // Line 3: Commission (negative line to offset)
+    if ( isset( $overlay['manual_commission'] ) && '' !== $overlay['manual_commission'] && null !== $overlay['manual_commission'] ) {
+        $commission = (float) $overlay['manual_commission'];
+        $invoice_lines[] = [
+            'product_key' => 'booking-commission',
+            'quantity' => 1,
+            'rate' => -$commission,
+        ];
+        $total -= $commission;
+    }
+
+    $payload = [
+        'client_id' => $client_id,
+        'lines' => $invoice_lines,
+        'amount' => round( $total, 2 ),
+        'is_amount_discount' => false,
+        'discount' => 0,
+    ];
+
+    $response = wp_remote_post( trailingslashit( $api_url ) . 'api/v1/invoices', [
+        'headers' => [
+            'Authorization' => 'Bearer ' . $api_token,
+            'Content-Type' => 'application/json',
+            'Accept' => 'application/json',
+        ],
+        'body' => wp_json_encode( $payload ),
+        'timeout' => 15,
+    ] );
+
+    if ( is_wp_error( $response ) ) {
+        return new WP_Error( 'invoice_ninja_request_failed', $response->get_error_message(), [ 'status' => 500 ] );
+    }
+
+    $code = wp_remote_retrieve_response_code( $response );
+    $body = wp_remote_retrieve_body( $response );
+    $data = json_decode( $body, true );
+
+    if ( 201 !== $code || empty( $data['id'] ) ) {
+        return new WP_Error( 'invoice_ninja_invalid_response', __( 'Failed to create invoice. Response:', 'lgf-calendar-view' ) . ' ' . $code . ' - ' . $body, [ 'status' => $code >= 500 ? 502 : 500 ] );
+    }
+
+    // Optionally, attach a note with our booking_id for traceability
+    update_post_meta( $booking_id, '_lgf_calendar_invoice_ninja_id', $data['id'] );
+
+    return rest_ensure_response( [
+        'success' => true,
+        'invoice_id' => $data['id'],
+        'invoice_number' => $data['invoice_number'] ?? '',
+        'amount' => $data['amount'] ?? $total,
     ] );
 }
