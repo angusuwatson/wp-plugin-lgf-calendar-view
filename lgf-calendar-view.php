@@ -107,7 +107,7 @@ function lgf_calendar_view_enqueue_shared_assets( $context = 'frontend' ) {
         'restUrl'        => esc_url_raw( rest_url( 'lgf-calendar/v1/table' ) ),
         'dailyNotesUrl'  => esc_url_raw( rest_url( 'lgf-calendar/v1/daily-note' ) ),
         'bookingUrl'     => esc_url_raw( rest_url( 'lgf-calendar/v1/booking-overlay' ) ),
-        'createInvoiceUrl' => esc_url_raw( rest_url( 'lgf-calendar/v1/create-invoice' ) ),
+
         'nonce'          => wp_create_nonce( 'wp_rest' ),
         'context'        => $context,
         'adminPageUrl'   => admin_url( 'admin.php?page=lgf-calendar-view' ),
@@ -296,6 +296,34 @@ function lgf_calendar_view_extract_tarif( $booking, $reserved_room ) {
         }
     }
 
+    if ( $reserved_room ) {
+        $reserved_room_id = method_exists( $reserved_room, 'getId' ) ? (int) $reserved_room->getId() : 0;
+        if ( $reserved_room_id > 0 ) {
+            $reserved_room_price = get_post_meta( $reserved_room_id, '_mphb_reserved_room_price', true );
+            if ( is_numeric( $reserved_room_price ) ) {
+                return (float) $reserved_room_price;
+            }
+            $reserved_room_price = get_post_meta( $reserved_room_id, '_mphb_room_price', true );
+            if ( is_numeric( $reserved_room_price ) ) {
+                return (float) $reserved_room_price;
+            }
+        }
+    }
+
+    if ( $reserved_room && method_exists( $reserved_room, 'getPrice' ) ) {
+        $price = $reserved_room->getPrice();
+        if ( is_numeric( $price ) && $price > 0 ) {
+            return (float) $price;
+        }
+    }
+
+    if ( $reserved_room && method_exists( $reserved_room, 'getTotal' ) ) {
+        $total = $reserved_room->getTotal();
+        if ( is_numeric( $total ) && $total > 0 ) {
+            return (float) $total;
+        }
+    }
+
     $breakdown = null;
     if ( $booking && method_exists( $booking, 'getLastPriceBreakdown' ) ) {
         $breakdown = $booking->getLastPriceBreakdown();
@@ -333,6 +361,13 @@ function lgf_calendar_view_extract_tarif( $booking, $reserved_room ) {
             if ( '' !== $tarif ) {
                 return $tarif;
             }
+        }
+    }
+
+    if ( $booking && method_exists( $booking, 'getId' ) ) {
+        $booking_price = get_post_meta( $booking->getId(), '_mphb_booking_price', true );
+        if ( is_numeric( $booking_price ) ) {
+            return (float) $booking_price;
         }
     }
 
@@ -754,19 +789,7 @@ add_action( 'rest_api_init', function() {
         'permission_callback' => function() { return lgf_calendar_view_user_can_access(); },
     ] );
 
-    register_rest_route( 'lgf-calendar/v1', '/create-invoice', [
-        'methods'  => 'POST',
-        'callback' => 'lgf_calendar_rest_create_invoice',
-        'permission_callback' => function() { return lgf_calendar_view_user_can_access(); },
-        'args'     => [
-            'booking_id' => [
-                'validate_callback' => function( $param ) {
-                    return is_numeric( $param ) && $param > 0;
-                },
-                'required' => true,
-            ],
-        ],
-    ] );
+
 } );
 
 function lgf_calendar_rest_table( WP_REST_Request $request ) {
@@ -850,112 +873,4 @@ function lgf_calendar_rest_save_booking_overlay( WP_REST_Request $request ) {
     ] );
 }
 
-/**
- * Create invoice in Invoice Ninja via REST API.
- */
-function lgf_calendar_rest_create_invoice( WP_REST_Request $request ) {
-    $booking_id = absint( $request->get_param( 'booking_id' ) );
-    if ( $booking_id <= 0 ) {
-        return new WP_Error( 'invalid_booking', __( 'Invalid booking ID.', 'lgf-calendar-view' ), [ 'status' => 400 ] );
-    }
 
-    $api_url = get_option( 'lgf_calendar_invoice_ninja_url', '' );
-    $api_token = get_option( 'lgf_calendar_invoice_ninja_token', '' );
-
-    if ( empty( $api_url ) || empty( $api_token ) ) {
-        return new WP_Error( 'invoice_ninja_not_configured', __( 'Invoice Ninja API not configured. Please set URL and token in settings.', 'lgf-calendar-view' ), [ 'status' => 500 ] );
-    }
-
-    // Fetch overlay and booking data to build invoice
-    $overlay = lgf_calendar_view_get_booking_overlay( $booking_id );
-    if ( empty( $overlay ) ) {
-        return new WP_Error( 'no_overlay_data', __( 'No overlay data for this booking.', 'lgf-calendar-view' ), [ 'status' => 404 ] );
-    }
-
-    $booking = get_post( $booking_id );
-    if ( ! $booking || 'mphb_booking' !== $booking->post_type ) {
-        return new WP_Error( 'booking_not_found', __( 'Booking not found.', 'lgf-calendar-view' ), [ 'status' => 404 ] );
-    }
-
-    // Build invoice payload
-    $client_id = get_post_meta( $booking_id, '_mphb_customer_id', true );
-    if ( ! $client_id ) {
-        return new WP_Error( 'no_customer', __( 'Booking has no associated customer.', 'lgf-calendar-view' ), [ 'status' => 400 ] );
-    }
-
-    $invoice_lines = [];
-    $total = 0.0;
-
-    // Line 1: Room tarif
-    if ( isset( $overlay['manual_tarif'] ) && '' !== $overlay['manual_tarif'] && null !== $overlay['manual_tarif'] ) {
-        $tarif = (float) $overlay['manual_tarif'];
-        $invoice_lines[] = [
-            'product_key' => 'room-charge',
-            'quantity' => 1,
-            'rate' => $tarif,
-        ];
-        $total += $tarif;
-    }
-
-    // Line 2: Extras total (from evaluated formula)
-    if ( isset( $overlay['extras_total'] ) && '' !== $overlay['extras_total'] && null !== $overlay['extras_total'] ) {
-        $extras = (float) $overlay['extras_total'];
-        $invoice_lines[] = [
-            'product_key' => 'extras-charge',
-            'quantity' => 1,
-            'rate' => $extras,
-        ];
-        $total += $extras;
-    }
-
-    // Line 3: Commission (negative line to offset)
-    if ( isset( $overlay['manual_commission'] ) && '' !== $overlay['manual_commission'] && null !== $overlay['manual_commission'] ) {
-        $commission = (float) $overlay['manual_commission'];
-        $invoice_lines[] = [
-            'product_key' => 'booking-commission',
-            'quantity' => 1,
-            'rate' => -$commission,
-        ];
-        $total -= $commission;
-    }
-
-    $payload = [
-        'client_id' => $client_id,
-        'lines' => $invoice_lines,
-        'amount' => round( $total, 2 ),
-        'is_amount_discount' => false,
-        'discount' => 0,
-    ];
-
-    $response = wp_remote_post( trailingslashit( $api_url ) . 'api/v1/invoices', [
-        'headers' => [
-            'Authorization' => 'Bearer ' . $api_token,
-            'Content-Type' => 'application/json',
-            'Accept' => 'application/json',
-        ],
-        'body' => wp_json_encode( $payload ),
-        'timeout' => 15,
-    ] );
-
-    if ( is_wp_error( $response ) ) {
-        return new WP_Error( 'invoice_ninja_request_failed', $response->get_error_message(), [ 'status' => 500 ] );
-    }
-
-    $code = wp_remote_retrieve_response_code( $response );
-    $body = wp_remote_retrieve_body( $response );
-    $data = json_decode( $body, true );
-
-    if ( 201 !== $code || empty( $data['id'] ) ) {
-        return new WP_Error( 'invoice_ninja_invalid_response', __( 'Failed to create invoice. Response:', 'lgf-calendar-view' ) . ' ' . $code . ' - ' . $body, [ 'status' => $code >= 500 ? 502 : 500 ] );
-    }
-
-    // Optionally, attach a note with our booking_id for traceability
-    update_post_meta( $booking_id, '_lgf_calendar_invoice_ninja_id', $data['id'] );
-
-    return rest_ensure_response( [
-        'success' => true,
-        'invoice_id' => $data['id'],
-        'invoice_number' => $data['invoice_number'] ?? '',
-        'amount' => $data['amount'] ?? $total,
-    ] );
-}
