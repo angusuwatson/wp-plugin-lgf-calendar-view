@@ -158,34 +158,6 @@
             debounceSave('booking:' + reservedRoomId, function() { saveBookingOverlay($input); });
         });
 
-        $(document).on('click', '.lgf-calendar-container .create-invoice-button', function() {
-            var $button = $(this);
-            var bookingId = $button.data('booking-id');
-            var reservedRoomId = $button.data('reserved-room-id');
-            if (!bookingId || !reservedRoomId) return;
-
-            $button.prop('disabled', true).addClass('saving');
-            request({
-                url: lgfCalendar.createInvoiceUrl,
-                method: 'POST',
-                data: { booking_id: bookingId, reserved_room_id: reservedRoomId },
-                success: function(response) {
-                    if (response && response.success) {
-                        alert('Invoice created: ' + (response.invoice_number || response.invoice_id));
-                    } else {
-                        alert('Failed to create invoice.');
-                    }
-                },
-                error: function(xhr) {
-                    console.error(xhr.responseText);
-                    alert('Error creating invoice.');
-                },
-                complete: function() {
-                    $button.prop('disabled', false).removeClass('saving');
-                }
-            });
-        });
-
         window.addEventListener('popstate', function(e) {
             if (e.state && e.state.month && e.state.year) {
                 loadMonth(e.state.month, e.state.year, false);

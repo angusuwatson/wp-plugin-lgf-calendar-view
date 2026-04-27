@@ -173,7 +173,6 @@ function lgf_calendar_view_enqueue_shared_assets( $context = 'frontend' ) {
         'restUrl'        => esc_url_raw( rest_url( 'lgf-calendar/v1/table' ) ),
         'dailyNotesUrl'  => esc_url_raw( rest_url( 'lgf-calendar/v1/daily-note' ) ),
         'bookingUrl'     => esc_url_raw( rest_url( 'lgf-calendar/v1/booking-overlay' ) ),
-        'createInvoiceUrl' => esc_url_raw( rest_url( 'lgf-calendar/v1/create-invoice' ) ),
         'nonce'          => wp_create_nonce( 'wp_rest' ),
         'context'        => $context,
         'adminPageUrl'   => admin_url( 'admin.php?page=lgf-calendar-view' ),
@@ -593,6 +592,28 @@ function lgf_calendar_view_get_room_sort_order( $room_code, $room_name ) {
     return $name_map[ $room_name ] ?? 999;
 }
 
+function lgf_calendar_view_format_channel_code( $source_channel, $created_date = '' ) {
+    $source_channel = (string) $source_channel;
+    $created_date   = (string) $created_date;
+
+    $prefix_map = [
+        'booking_com' => 'B',
+        'direct'      => 'W',
+        'motopress'   => 'W',
+        'website'     => 'W',
+        'email'       => 'E',
+        'telephone'   => 'T',
+        'phone'       => 'T',
+    ];
+
+    $prefix = $prefix_map[ $source_channel ] ?? strtoupper( substr( preg_replace( '/[^a-z]/i', '', $source_channel ), 0, 1 ) );
+    if ( '' === $prefix ) {
+        $prefix = '?';
+    }
+
+    return trim( $prefix . ( $created_date ? ' ' . $created_date : '' ) );
+}
+
 function lgf_calendar_view_get_empty_calendar_result( $month, $year, $days_in_month = 0 ) {
     return [
         'rooms'         => [],
@@ -676,16 +697,16 @@ function lgf_calendar_view_get_wp_sync_calendar_data( $month, $year ) {
             'adults' => $adults,
             'children' => $children,
             'occupancy_str' => lgf_calendar_view_format_occupancy( $adults, $children ),
-            'channel' => strtoupper( (string) $row['source_channel'] ),
+            'channel' => lgf_calendar_view_format_channel_code( (string) $row['source_channel'], ! empty( $row['source_created_at'] ) ? substr( (string) $row['source_created_at'], 0, 10 ) : '' ),
             'channel_label' => (string) ( $row['channel_label'] ?: $row['source_channel'] ),
             'created_date' => ! empty( $row['source_created_at'] ) ? substr( (string) $row['source_created_at'], 0, 10 ) : '',
             'is_imported' => 'motopress' !== (string) $row['source_channel'],
             'tarif' => isset( $overlay['manual_tarif'] ) && '' !== $overlay['manual_tarif'] ? (float) $overlay['manual_tarif'] : (float) $row['room_amount'],
             'commission' => isset( $overlay['manual_commission'] ) && '' !== $overlay['manual_commission'] ? (float) $overlay['manual_commission'] : '',
             'extras_formula' => $extras_formula,
-            'extras_total' => $extras_total,
+            'extras_total' => null !== $extras_total ? $extras_total : ( ( isset( $row['extras_amount'] ) && '' !== $row['extras_amount'] && (float) $row['extras_amount'] > 0 ) ? (float) $row['extras_amount'] : null ),
             'booking_note' => isset( $overlay['booking_note'] ) ? (string) $overlay['booking_note'] : '',
-            'import_notes' => (string) $row['import_notes'],
+            'import_notes' => (string) ( $row['import_notes'] ?? '' ),
             'invoice_ninja_client_id' => (string) $row['invoice_ninja_client_id'],
             'invoice_ninja_invoice_id' => (string) $row['invoice_ninja_invoice_id'],
             'source_booking_id' => (string) $row['source_booking_id'],
@@ -786,6 +807,8 @@ function lgf_calendar_view_get_external_calendar_data( $month, $year ) {
             b.adults,
             b.children,
             b.total_amount,
+            b.room_rate_amount,
+            b.extras_amount,
             b.source_channel,
             b.source_booking_id,
             b.internal_notes,
@@ -840,7 +863,7 @@ function lgf_calendar_view_get_external_calendar_data( $month, $year ) {
         $extras_formula = isset( $overlay['extras_formula'] ) ? (string) $overlay['extras_formula'] : '';
         $extras_total   = isset( $overlay['extras_total'] ) && '' !== $overlay['extras_total'] ? (float) $overlay['extras_total'] : null;
         $room_count     = max( 1, (int) $row['room_count'] );
-        $room_tarif     = round( (float) $row['total_amount'] / $room_count, 2 );
+        $room_tarif     = isset( $row['room_rate_amount'] ) ? (float) $row['room_rate_amount'] : round( (float) $row['total_amount'] / $room_count, 2 );
 
         $booking_payload = (object) [
             'id'                      => (int) $row['booking_id'],
@@ -854,16 +877,16 @@ function lgf_calendar_view_get_external_calendar_data( $month, $year ) {
             'adults'                  => $adults,
             'children'                => $children,
             'occupancy_str'           => lgf_calendar_view_format_occupancy( $adults, $children ),
-            'channel'                 => strtoupper( (string) $row['source_channel'] ),
+            'channel'                 => lgf_calendar_view_format_channel_code( (string) $row['source_channel'], substr( (string) $row['created_at'], 0, 10 ) ),
             'channel_label'           => (string) ( $row['channel_label'] ?: $row['source_channel'] ),
             'created_date'            => substr( (string) $row['created_at'], 0, 10 ),
             'is_imported'             => 'motopress' !== (string) $row['source_channel'],
             'tarif'                   => isset( $overlay['manual_tarif'] ) && '' !== $overlay['manual_tarif'] ? (float) $overlay['manual_tarif'] : $room_tarif,
             'commission'              => isset( $overlay['manual_commission'] ) && '' !== $overlay['manual_commission'] ? (float) $overlay['manual_commission'] : '',
             'extras_formula'          => $extras_formula,
-            'extras_total'            => $extras_total,
+            'extras_total'            => null !== $extras_total ? $extras_total : ( ( isset( $row['extras_amount'] ) && '' !== $row['extras_amount'] && (float) $row['extras_amount'] > 0 ) ? (float) $row['extras_amount'] : null ),
             'booking_note'            => isset( $overlay['booking_note'] ) ? (string) $overlay['booking_note'] : '',
-            'import_notes'            => (string) $row['internal_notes'],
+            'import_notes'            => (string) ( $row['internal_notes'] ?? '' ),
             'invoice_ninja_client_id' => (string) $row['invoice_ninja_client_id'],
             'invoice_ninja_invoice_id'=> (string) $row['invoice_ninja_invoice_id'],
             'source_booking_id'       => (string) $row['source_booking_id'],

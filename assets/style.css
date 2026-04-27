@@ -38,7 +38,7 @@
 .calendar-month-tab:hover { background: #343434; color: #fff; }
 .calendar-month-tab.is-current { background: #3d3d3d; border-bottom-color: #ffffff; }
 
-.lgf-calendar-view { overflow-x: auto; background: #fff; }
+.lgf-calendar-view { overflow-x: auto; overflow-y: visible; background: #fff; }
 
 .lgf-calendar-view .calendar-grid {
     border-collapse: collapse;
@@ -70,11 +70,12 @@
 .lgf-calendar-view .calendar-grid .sticky-col {
     position: sticky;
     left: 0;
-    z-index: 4;
-    min-width: 118px;
-    width: 118px;
-    max-width: 118px;
+    z-index: 8;
+    min-width: 100px;
+    width: 100px;
+    max-width: 100px;
     border-right: 1px solid #000;
+    background-clip: padding-box;
 }
 
 .lgf-calendar-view .calendar-grid .room-header-spacer { background: #f8f7f2; }
@@ -97,7 +98,7 @@
     height: 14px;
 }
 
-.lgf-calendar-view .calendar-grid .notes-label-cell { background: #f3f1e7; font-weight: 700; z-index: 5; }
+.lgf-calendar-view .calendar-grid .notes-label-cell { background: #f3f1e7; font-weight: 700; z-index: 9; }
 .lgf-calendar-view .calendar-grid .notes-cell { padding: 0; }
 
 .lgf-calendar-view .calendar-grid .calendar-note-input,
@@ -148,8 +149,9 @@
 .lgf-calendar-view .calendar-grid .room-name-row td[data-room-color="#ffe699"] { background: linear-gradient(rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.85)), #fde39b; }
 .lgf-calendar-view .calendar-grid .room-name-row td[data-room-color="#f4b183"] { background: linear-gradient(rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.85)), #f4b07d; }
 .lgf-calendar-view .calendar-grid .room-name-row td[data-room-color="#cccccc"] { background: linear-gradient(rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.85)), #c8c8c8; }
+.lgf-calendar-view .calendar-grid .room-name-row td[data-room-color="#cccccc"] { background: linear-gradient(rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.85)), #c8c8c8; }
 
-.lgf-calendar-view .calendar-grid .room-name-row .room-label-cell { z-index: 5; }
+.lgf-calendar-view .calendar-grid .room-name-row .room-label-cell { z-index: 9; }
 .lgf-calendar-view .calendar-grid .room-label-cell.detail,
 .lgf-calendar-view .calendar-grid td.calendar-cell.detail { background: var(--room-fill, #ddd); }
 
@@ -365,5 +367,5 @@
     .lgf-calendar-view .calendar-grid { min-width: 1950px; font-size: 11px; }
     .lgf-calendar-view .calendar-grid th,
     .lgf-calendar-view .calendar-grid td { width: 86px; font-size: 10px; height: 14px; }
-    .lgf-calendar-view .calendar-grid .sticky-col { min-width: 108px; width: 108px; max-width: 108px; }
+    .lgf-calendar-view .calendar-grid .sticky-col { min-width: 92px; width: 92px; max-width: 92px; }
 }
