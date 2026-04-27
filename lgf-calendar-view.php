@@ -9,12 +9,12 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'LGF_CALENDAR_VIEW_VERSION', '1.4' );
-define( 'LGF_CALENDAR_VIEW_DB_VERSION', '2' );
+define( 'LGF_CALENDAR_VIEW_VERSION', '1.5' );
+define( 'LGF_CALENDAR_VIEW_DB_VERSION', '3' );
 
 add_action( 'plugins_loaded', 'lgf_calendar_view_check_dependency' );
 function lgf_calendar_view_check_dependency() {
-    if ( 'external_pg' === lgf_calendar_view_get_data_source() ) {
+    if ( 'motopress' !== lgf_calendar_view_get_data_source() ) {
         return;
     }
 
@@ -22,7 +22,7 @@ function lgf_calendar_view_check_dependency() {
         add_action( 'admin_notices', function() {
             ?>
             <div class="notice notice-error">
-                <p><?php esc_html_e( 'LGF Calendar View requires Motopress Hotel Booking plugin to be installed and active unless External PostgreSQL is selected as the booking source.', 'lgf-calendar-view' ); ?></p>
+                <p><?php esc_html_e( 'LGF Calendar View requires MotoPress Hotel Booking when the MotoPress source is selected.', 'lgf-calendar-view' ); ?></p>
             </div>
             <?php
         } );
@@ -52,6 +52,8 @@ function lgf_calendar_view_install_tables() {
     $charset_collate = $wpdb->get_charset_collate();
     $daily_notes_table = lgf_calendar_view_daily_notes_table();
     $overlay_table     = lgf_calendar_view_booking_overlay_table();
+    $sync_rooms_table  = lgf_calendar_view_sync_rooms_table();
+    $sync_bookings_table = lgf_calendar_view_sync_bookings_table();
 
     $sql_daily_notes = "CREATE TABLE {$daily_notes_table} (
         note_date date NOT NULL,
@@ -82,8 +84,57 @@ function lgf_calendar_view_install_tables() {
         KEY room_id (room_id)
     ) {$charset_collate};";
 
+    $sql_sync_rooms = "CREATE TABLE {$sync_rooms_table} (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        external_room_id bigint(20) unsigned NOT NULL DEFAULT 0,
+        room_code varchar(50) NOT NULL,
+        room_name varchar(255) NOT NULL,
+        sort_order int(11) NOT NULL DEFAULT 0,
+        active tinyint(1) NOT NULL DEFAULT 1,
+        synced_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY  (id),
+        UNIQUE KEY external_room_id (external_room_id),
+        KEY room_code (room_code),
+        KEY active (active)
+    ) {$charset_collate};";
+
+    $sql_sync_bookings = "CREATE TABLE {$sync_bookings_table} (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        external_booking_id bigint(20) unsigned NOT NULL DEFAULT 0,
+        external_booking_room_id bigint(20) unsigned NOT NULL DEFAULT 0,
+        external_room_id bigint(20) unsigned NOT NULL DEFAULT 0,
+        room_sync_id bigint(20) unsigned NOT NULL DEFAULT 0,
+        status_code varchar(50) NOT NULL,
+        check_in date NOT NULL,
+        check_out date NOT NULL,
+        adults int(11) NOT NULL DEFAULT 0,
+        children int(11) NOT NULL DEFAULT 0,
+        total_amount decimal(10,2) NOT NULL DEFAULT 0.00,
+        room_amount decimal(10,2) NOT NULL DEFAULT 0.00,
+        room_count int(11) NOT NULL DEFAULT 1,
+        source_channel varchar(50) NOT NULL,
+        source_booking_id varchar(191) NULL,
+        channel_label varchar(191) NULL,
+        guest_name varchar(255) NOT NULL,
+        phone varchar(100) NULL,
+        internal_notes longtext NULL,
+        invoice_ninja_client_id varchar(191) NULL,
+        invoice_ninja_invoice_id varchar(191) NULL,
+        source_created_at datetime NULL,
+        synced_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY  (id),
+        UNIQUE KEY external_booking_room_id (external_booking_room_id),
+        KEY room_sync_id (room_sync_id),
+        KEY external_booking_id (external_booking_id),
+        KEY external_room_id (external_room_id),
+        KEY booking_dates (check_in, check_out),
+        KEY status_code (status_code)
+    ) {$charset_collate};";
+
     dbDelta( $sql_daily_notes );
     dbDelta( $sql_overlays );
+    dbDelta( $sql_sync_rooms );
+    dbDelta( $sql_sync_bookings );
 
     update_option( 'lgf_calendar_view_db_version', LGF_CALENDAR_VIEW_DB_VERSION );
 }
@@ -96,6 +147,16 @@ function lgf_calendar_view_daily_notes_table() {
 function lgf_calendar_view_booking_overlay_table() {
     global $wpdb;
     return $wpdb->prefix . 'lgf_calendar_booking_overlays';
+}
+
+function lgf_calendar_view_sync_rooms_table() {
+    global $wpdb;
+    return $wpdb->prefix . 'lgf_calendar_sync_rooms';
+}
+
+function lgf_calendar_view_sync_bookings_table() {
+    global $wpdb;
+    return $wpdb->prefix . 'lgf_calendar_sync_bookings';
 }
 
 function lgf_calendar_view_user_can_access() {
@@ -111,7 +172,7 @@ function lgf_calendar_view_enqueue_shared_assets( $context = 'frontend' ) {
         'restUrl'        => esc_url_raw( rest_url( 'lgf-calendar/v1/table' ) ),
         'dailyNotesUrl'  => esc_url_raw( rest_url( 'lgf-calendar/v1/daily-note' ) ),
         'bookingUrl'     => esc_url_raw( rest_url( 'lgf-calendar/v1/booking-overlay' ) ),
-
+        'createInvoiceUrl' => esc_url_raw( rest_url( 'lgf-calendar/v1/create-invoice' ) ),
         'nonce'          => wp_create_nonce( 'wp_rest' ),
         'context'        => $context,
         'adminPageUrl'   => admin_url( 'admin.php?page=lgf-calendar-view' ),
@@ -452,7 +513,7 @@ function lgf_calendar_view_build_booking_payload( $booking, $reserved_room ) {
 
 function lgf_calendar_view_get_data_source() {
     $source = get_option( 'lgf_calendar_booking_source', 'motopress' );
-    return in_array( $source, [ 'motopress', 'external_pg' ], true ) ? $source : 'motopress';
+    return in_array( $source, [ 'motopress', 'wp_sync', 'external_pg' ], true ) ? $source : 'motopress';
 }
 
 function lgf_calendar_view_get_external_db_settings() {
@@ -520,6 +581,129 @@ function lgf_calendar_view_get_empty_calendar_result( $month, $year, $days_in_mo
         'days_in_month' => $days_in_month,
         'days'          => $days_in_month > 0 ? range( 1, $days_in_month ) : [],
         'daily_notes'   => $days_in_month > 0 ? lgf_calendar_view_get_daily_notes_for_month( $year, $month ) : [],
+    ];
+}
+
+function lgf_calendar_view_get_wp_sync_calendar_data( $month, $year ) {
+    global $wpdb;
+
+    $first_day = new DateTime( sprintf( '%04d-%02d-01', $year, $month ) );
+    $days_in_month = (int) $first_day->format( 't' );
+    $last_day = clone $first_day;
+    $last_day->setDate( $year, $month, $days_in_month );
+
+    $first_day_str = $first_day->format( 'Y-m-d' );
+    $month_after_last_day_str = $last_day->modify( '+1 day' )->format( 'Y-m-d' );
+
+    $rooms_table = lgf_calendar_view_sync_rooms_table();
+    $bookings_table = lgf_calendar_view_sync_bookings_table();
+
+    $rooms_rows = $wpdb->get_results( "SELECT id, external_room_id, room_code, room_name, sort_order FROM {$rooms_table} WHERE active = 1 ORDER BY sort_order ASC, room_name ASC", ARRAY_A );
+
+    $rooms = [];
+    $matrix = [];
+    $room_colors = lgf_calendar_view_get_room_colors();
+    foreach ( $rooms_rows as $index => $room_row ) {
+        $room = (object) [
+            'id' => (int) $room_row['id'],
+            'external_room_id' => (int) $room_row['external_room_id'],
+            'title' => (string) $room_row['room_name'],
+            'code' => (string) $room_row['room_code'],
+            'color' => $room_colors[ $index + 1 ] ?? '#cccccc',
+        ];
+        $rooms[] = $room;
+        $matrix[ $room->id ] = [];
+    }
+
+    if ( empty( $rooms ) ) {
+        return lgf_calendar_view_get_empty_calendar_result( $month, $year, $days_in_month );
+    }
+
+    $booking_rows = $wpdb->get_results(
+        $wpdb->prepare(
+            "SELECT * FROM {$bookings_table} WHERE check_in < %s AND check_out > %s ORDER BY check_in ASC, external_booking_id ASC, external_booking_room_id ASC",
+            $month_after_last_day_str,
+            $first_day_str
+        ),
+        ARRAY_A
+    );
+
+    foreach ( $booking_rows as $row ) {
+        $room_id = (int) $row['room_sync_id'];
+        if ( ! isset( $matrix[ $room_id ] ) ) {
+            continue;
+        }
+
+        $reserved_room_id = (int) $row['external_booking_room_id'];
+        $overlay = lgf_calendar_view_get_booking_overlay( $reserved_room_id );
+        $adults = isset( $overlay['manual_adults'] ) && '' !== $overlay['manual_adults'] ? (int) $overlay['manual_adults'] : (int) $row['adults'];
+        $children = isset( $overlay['manual_children'] ) && '' !== $overlay['manual_children'] ? (int) $overlay['manual_children'] : (int) $row['children'];
+        $guest_name = isset( $overlay['manual_guest_name'] ) && '' !== trim( (string) $overlay['manual_guest_name'] ) ? trim( (string) $overlay['manual_guest_name'] ) : (string) $row['guest_name'];
+        $extras_formula = isset( $overlay['extras_formula'] ) ? (string) $overlay['extras_formula'] : '';
+        $extras_total = isset( $overlay['extras_total'] ) && '' !== $overlay['extras_total'] ? (float) $overlay['extras_total'] : null;
+
+        $booking_payload = (object) [
+            'id' => (int) $row['external_booking_id'],
+            'status' => (string) $row['status_code'],
+            'check_in' => (string) $row['check_in'],
+            'check_out' => (string) $row['check_out'],
+            'room_id' => $room_id,
+            'reserved_room_id' => $reserved_room_id,
+            'guest_name' => $guest_name,
+            'phone' => (string) $row['phone'],
+            'adults' => $adults,
+            'children' => $children,
+            'occupancy_str' => lgf_calendar_view_format_occupancy( $adults, $children ),
+            'channel' => strtoupper( (string) $row['source_channel'] ),
+            'channel_label' => (string) ( $row['channel_label'] ?: $row['source_channel'] ),
+            'created_date' => ! empty( $row['source_created_at'] ) ? substr( (string) $row['source_created_at'], 0, 10 ) : '',
+            'is_imported' => 'motopress' !== (string) $row['source_channel'],
+            'tarif' => isset( $overlay['manual_tarif'] ) && '' !== $overlay['manual_tarif'] ? (float) $overlay['manual_tarif'] : (float) $row['room_amount'],
+            'commission' => isset( $overlay['manual_commission'] ) && '' !== $overlay['manual_commission'] ? (float) $overlay['manual_commission'] : '',
+            'extras_formula' => $extras_formula,
+            'extras_total' => $extras_total,
+            'booking_note' => isset( $overlay['booking_note'] ) ? (string) $overlay['booking_note'] : (string) $row['internal_notes'],
+            'invoice_ninja_client_id' => (string) $row['invoice_ninja_client_id'],
+            'invoice_ninja_invoice_id' => (string) $row['invoice_ninja_invoice_id'],
+            'source_booking_id' => (string) $row['source_booking_id'],
+        ];
+
+        $check_in = new DateTime( $booking_payload->check_in );
+        $check_out = new DateTime( $booking_payload->check_out );
+
+        for ( $date = clone $check_in; $date < $check_out; $date->modify( '+1 day' ) ) {
+            $date_str = $date->format( 'Y-m-d' );
+            if ( $date_str < $first_day_str || $date_str >= $month_after_last_day_str ) {
+                continue;
+            }
+
+            if ( ! isset( $matrix[ $room_id ][ $date_str ] ) ) {
+                $matrix[ $room_id ][ $date_str ] = [ 'booking' => null, 'is_checkin' => false, 'is_checkout' => false ];
+            }
+
+            $matrix[ $room_id ][ $date_str ]['booking'] = clone $booking_payload;
+            if ( $date_str === $booking_payload->check_in ) {
+                $matrix[ $room_id ][ $date_str ]['is_checkin'] = true;
+            }
+        }
+
+        $check_out_date_str = $check_out->format( 'Y-m-d' );
+        if ( isset( $matrix[ $room_id ][ $check_out_date_str ] ) || ( $check_out_date_str >= $first_day_str && $check_out_date_str < $month_after_last_day_str ) ) {
+            if ( ! isset( $matrix[ $room_id ][ $check_out_date_str ] ) ) {
+                $matrix[ $room_id ][ $check_out_date_str ] = [ 'booking' => null, 'is_checkin' => false, 'is_checkout' => false ];
+            }
+            $matrix[ $room_id ][ $check_out_date_str ]['is_checkout'] = true;
+        }
+    }
+
+    return [
+        'rooms' => $rooms,
+        'matrix' => $matrix,
+        'month' => $month,
+        'year' => $year,
+        'days_in_month' => $days_in_month,
+        'days' => range( 1, $days_in_month ),
+        'daily_notes' => lgf_calendar_view_get_daily_notes_for_month( $year, $month ),
     ];
 }
 
@@ -845,9 +1029,14 @@ function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
         return $cached;
     }
 
-    $result = 'external_pg' === lgf_calendar_view_get_data_source()
-        ? lgf_calendar_view_get_external_calendar_data( $month, $year )
-        : lgf_calendar_view_get_motopress_calendar_data( $month, $year );
+    $source = lgf_calendar_view_get_data_source();
+    if ( 'external_pg' === $source ) {
+        $result = lgf_calendar_view_get_external_calendar_data( $month, $year );
+    } elseif ( 'wp_sync' === $source ) {
+        $result = lgf_calendar_view_get_wp_sync_calendar_data( $month, $year );
+    } else {
+        $result = lgf_calendar_view_get_motopress_calendar_data( $month, $year );
+    }
 
     set_transient( $transient_key, $result, 30 * MINUTE_IN_SECONDS );
     return $result;
@@ -958,7 +1147,7 @@ function lgf_calendar_view_render_settings_page() {
         $api_url = isset( $_POST['lgf_calendar_invoice_ninja_url'] ) ? esc_url_raw( trim( wp_unslash( $_POST['lgf_calendar_invoice_ninja_url'] ) ) ) : '';
         $api_token = isset( $_POST['lgf_calendar_invoice_ninja_token'] ) ? sanitize_text_field( trim( wp_unslash( $_POST['lgf_calendar_invoice_ninja_token'] ) ) ) : '';
         $booking_source = isset( $_POST['lgf_calendar_booking_source'] ) ? sanitize_text_field( wp_unslash( $_POST['lgf_calendar_booking_source'] ) ) : 'motopress';
-        $booking_source = in_array( $booking_source, [ 'motopress', 'external_pg' ], true ) ? $booking_source : 'motopress';
+        $booking_source = in_array( $booking_source, [ 'motopress', 'wp_sync', 'external_pg' ], true ) ? $booking_source : 'motopress';
 
         update_option( 'lgf_calendar_invoice_ninja_url', $api_url );
         update_option( 'lgf_calendar_invoice_ninja_token', $api_token );
@@ -988,9 +1177,13 @@ function lgf_calendar_view_render_settings_page() {
     echo '<tr><th scope="row"><label for="lgf_calendar_booking_source">' . esc_html__( 'Booking data source', 'lgf-calendar-view' ) . '</label></th>';
     echo '<td><select id="lgf_calendar_booking_source" name="lgf_calendar_booking_source">';
     echo '<option value="motopress"' . selected( $booking_source, 'motopress', false ) . '>' . esc_html__( 'MotoPress / WordPress', 'lgf-calendar-view' ) . '</option>';
+    echo '<option value="wp_sync"' . selected( $booking_source, 'wp_sync', false ) . '>' . esc_html__( 'Local WordPress sync tables', 'lgf-calendar-view' ) . '</option>';
     echo '<option value="external_pg"' . selected( $booking_source, 'external_pg', false ) . '>' . esc_html__( 'External PostgreSQL (LGF database)', 'lgf-calendar-view' ) . '</option>';
-    echo '</select><p class="description">' . esc_html__( 'Use the LGF PostgreSQL database when you want the plugin to display bookings from your standalone project database instead of MotoPress.', 'lgf-calendar-view' ) . '</p></td></tr>';
+    echo '</select><p class="description">' . esc_html__( 'Use local WordPress sync tables for production-friendly hosting, or external PostgreSQL for direct local development/testing.', 'lgf-calendar-view' ) . '</p></td></tr>';
     echo '</table>';
+
+    echo '<h2>' . esc_html__( 'Local Sync', 'lgf-calendar-view' ) . '</h2>';
+    echo '<p>' . esc_html__( 'To use Local WordPress sync tables, run the sync script from this project to copy rooms and bookings from the LGF PostgreSQL database into WordPress MySQL. Then select "Local WordPress sync tables" above.', 'lgf-calendar-view' ) . '</p>';
 
     echo '<h2>' . esc_html__( 'External PostgreSQL', 'lgf-calendar-view' ) . '</h2>';
     echo '<table class="form-table">';
@@ -1199,7 +1392,8 @@ function lgf_calendar_rest_create_invoice( WP_REST_Request $request ) {
     }
 
     $client_id = '';
-    if ( 'external_pg' === lgf_calendar_view_get_data_source() ) {
+    $source = lgf_calendar_view_get_data_source();
+    if ( 'external_pg' === $source ) {
         $connection = lgf_calendar_view_get_external_pg_connection();
         if ( is_wp_error( $connection ) ) {
             return $connection;
@@ -1212,6 +1406,13 @@ function lgf_calendar_rest_create_invoice( WP_REST_Request $request ) {
 
         $client_row = pg_fetch_assoc( $client_result );
         $client_id = (string) ( $client_row['invoice_ninja_client_id'] ?? '' );
+    } elseif ( 'wp_sync' === $source ) {
+        global $wpdb;
+        $sync_bookings_table = lgf_calendar_view_sync_bookings_table();
+        $client_id = (string) $wpdb->get_var( $wpdb->prepare( "SELECT invoice_ninja_client_id FROM {$sync_bookings_table} WHERE external_booking_id = %d LIMIT 1", $booking_id ) );
+        if ( '' === $client_id ) {
+            return new WP_Error( 'booking_not_found', __( 'Booking not found in local sync data, or it has no Invoice Ninja client ID.', 'lgf-calendar-view' ), [ 'status' => 404 ] );
+        }
     } else {
         $booking = get_post( $booking_id );
         if ( ! $booking || 'mphb_booking' !== $booking->post_type ) {
@@ -1280,11 +1481,21 @@ function lgf_calendar_rest_create_invoice( WP_REST_Request $request ) {
         return new WP_Error( 'invoice_ninja_invalid_response', __( 'Failed to create invoice. Response:', 'lgf-calendar-view' ) . ' ' . $code . ' - ' . $body, [ 'status' => $code >= 500 ? 502 : 500 ] );
     }
 
-    if ( 'external_pg' === lgf_calendar_view_get_data_source() ) {
+    if ( 'external_pg' === $source ) {
         $connection = lgf_calendar_view_get_external_pg_connection();
         if ( ! is_wp_error( $connection ) ) {
             pg_query_params( $connection, 'UPDATE bookings SET invoice_ninja_invoice_id = $1, invoiced_at = NOW() WHERE id = $2', [ (string) $data['id'], $booking_id ] );
         }
+    } elseif ( 'wp_sync' === $source ) {
+        global $wpdb;
+        $sync_bookings_table = lgf_calendar_view_sync_bookings_table();
+        $wpdb->update(
+            $sync_bookings_table,
+            [ 'invoice_ninja_invoice_id' => (string) $data['id'] ],
+            [ 'external_booking_id' => $booking_id ],
+            [ '%s' ],
+            [ '%d' ]
+        );
     } else {
         update_post_meta( $booking_id, '_lgf_calendar_invoice_ninja_id', $data['id'] );
     }
