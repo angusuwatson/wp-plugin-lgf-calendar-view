@@ -111,13 +111,14 @@ function lgf_calendar_view_install_tables() {
         children int(11) NOT NULL DEFAULT 0,
         total_amount decimal(10,2) NOT NULL DEFAULT 0.00,
         room_amount decimal(10,2) NOT NULL DEFAULT 0.00,
+        extras_amount decimal(10,2) NULL,
         room_count int(11) NOT NULL DEFAULT 1,
         source_channel varchar(50) NOT NULL,
         source_booking_id varchar(191) NULL,
         channel_label varchar(191) NULL,
         guest_name varchar(255) NOT NULL,
         phone varchar(100) NULL,
-        internal_notes longtext NULL,
+        import_notes longtext NULL,
         invoice_ninja_client_id varchar(191) NULL,
         invoice_ninja_invoice_id varchar(191) NULL,
         source_created_at datetime NULL,
@@ -569,7 +570,27 @@ function lgf_calendar_view_get_external_pg_connection() {
 }
 
 function lgf_calendar_view_get_room_colors() {
-    return [ 1 => '#cc99ff', 2 => '#b4c7e7', 3 => '#a9d18e', 4 => '#ffe699', 5 => '#f4b183' ];
+    return [
+        'ANE' => '#cc99ff',
+        'DEL' => '#b4c7e7',
+        'LYS' => '#a9d18e',
+        'TOU' => '#ffe699',
+        'TUL' => '#f4b183',
+        'COQ' => '#cccccc',
+    ];
+}
+
+function lgf_calendar_view_get_room_sort_order( $room_code, $room_name ) {
+    $room_code = strtoupper( (string) $room_code );
+    $map = [ 'ANE' => 1, 'DEL' => 2, 'LYS' => 3, 'TOU' => 4, 'TUL' => 5, 'COQ' => 6 ];
+
+    if ( isset( $map[ $room_code ] ) ) {
+        return $map[ $room_code ];
+    }
+
+    $room_name = remove_accents( strtolower( (string) $room_name ) );
+    $name_map = [ 'anemone' => 1, 'delphinium' => 2, 'lys' => 3, 'tournesol' => 4, 'tulipe' => 5, 'coquelicot' => 6 ];
+    return $name_map[ $room_name ] ?? 999;
 }
 
 function lgf_calendar_view_get_empty_calendar_result( $month, $year, $days_in_month = 0 ) {
@@ -604,12 +625,13 @@ function lgf_calendar_view_get_wp_sync_calendar_data( $month, $year ) {
     $matrix = [];
     $room_colors = lgf_calendar_view_get_room_colors();
     foreach ( $rooms_rows as $index => $room_row ) {
+        $room_code = (string) $room_row['room_code'];
         $room = (object) [
             'id' => (int) $room_row['id'],
             'external_room_id' => (int) $room_row['external_room_id'],
             'title' => (string) $room_row['room_name'],
-            'code' => (string) $room_row['room_code'],
-            'color' => $room_colors[ $index + 1 ] ?? '#cccccc',
+            'code' => $room_code,
+            'color' => $room_colors[ strtoupper( $room_code ) ] ?? '#cccccc',
         ];
         $rooms[] = $room;
         $matrix[ $room->id ] = [];
@@ -662,7 +684,8 @@ function lgf_calendar_view_get_wp_sync_calendar_data( $month, $year ) {
             'commission' => isset( $overlay['manual_commission'] ) && '' !== $overlay['manual_commission'] ? (float) $overlay['manual_commission'] : '',
             'extras_formula' => $extras_formula,
             'extras_total' => $extras_total,
-            'booking_note' => isset( $overlay['booking_note'] ) ? (string) $overlay['booking_note'] : (string) $row['internal_notes'],
+            'booking_note' => isset( $overlay['booking_note'] ) ? (string) $overlay['booking_note'] : '',
+            'import_notes' => (string) $row['import_notes'],
             'invoice_ninja_client_id' => (string) $row['invoice_ninja_client_id'],
             'invoice_ninja_invoice_id' => (string) $row['invoice_ninja_invoice_id'],
             'source_booking_id' => (string) $row['source_booking_id'],
@@ -732,19 +755,23 @@ function lgf_calendar_view_get_external_calendar_data( $month, $year ) {
     $rooms = [];
     $room_colors = lgf_calendar_view_get_room_colors();
     $matrix = [];
-    $room_index = 1;
 
     while ( $room_row = pg_fetch_assoc( $rooms_result ) ) {
+        $room_code = (string) $room_row['code'];
         $room = (object) [
             'id'    => (int) $room_row['id'],
             'title' => (string) $room_row['name'],
-            'code'  => (string) $room_row['code'],
-            'color' => $room_colors[ $room_index ] ?? '#cccccc',
+            'code'  => $room_code,
+            'sort_order' => lgf_calendar_view_get_room_sort_order( $room_code, $room_row['name'] ),
+            'color' => $room_colors[ strtoupper( $room_code ) ] ?? '#cccccc',
         ];
         $rooms[] = $room;
         $matrix[ $room->id ] = [];
-        $room_index++;
     }
+
+    usort( $rooms, function( $a, $b ) {
+        return ( $a->sort_order <=> $b->sort_order ) ?: strcasecmp( $a->title, $b->title );
+    } );
 
     if ( empty( $rooms ) ) {
         return lgf_calendar_view_get_empty_calendar_result( $month, $year, $days_in_month );
@@ -835,7 +862,8 @@ function lgf_calendar_view_get_external_calendar_data( $month, $year ) {
             'commission'              => isset( $overlay['manual_commission'] ) && '' !== $overlay['manual_commission'] ? (float) $overlay['manual_commission'] : '',
             'extras_formula'          => $extras_formula,
             'extras_total'            => $extras_total,
-            'booking_note'            => isset( $overlay['booking_note'] ) ? (string) $overlay['booking_note'] : (string) $row['internal_notes'],
+            'booking_note'            => isset( $overlay['booking_note'] ) ? (string) $overlay['booking_note'] : '',
+            'import_notes'            => (string) $row['internal_notes'],
             'invoice_ninja_client_id' => (string) $row['invoice_ninja_client_id'],
             'invoice_ninja_invoice_id'=> (string) $row['invoice_ninja_invoice_id'],
             'source_booking_id'       => (string) $row['source_booking_id'],
@@ -933,8 +961,20 @@ function lgf_calendar_view_get_motopress_calendar_data( $month, $year ) {
 
     $room_colors = lgf_calendar_view_get_room_colors();
     foreach ( $rooms as $idx => $room ) {
-        $rooms[ $idx ]->color = $room_colors[ $idx + 1 ] ?? '#cccccc';
+        $room_code = '';
+        if ( isset( $room->code ) ) {
+            $room_code = (string) $room->code;
+        } elseif ( property_exists( $room, 'title' ) ) {
+            $title_map = [ 'Anémone' => 'ANE', 'Delphinium' => 'DEL', 'Lys' => 'LYS', 'Tournesol' => 'TOU', 'Tulipe' => 'TUL', 'Coquelicot' => 'COQ' ];
+            $room_code = $title_map[ $room->title ] ?? '';
+        }
+        $rooms[ $idx ]->sort_order = lgf_calendar_view_get_room_sort_order( $room_code, $room->title );
+        $rooms[ $idx ]->color = $room_colors[ strtoupper( $room_code ) ] ?? '#cccccc';
     }
+
+    usort( $rooms, function( $a, $b ) {
+        return ( $a->sort_order <=> $b->sort_order ) ?: strcasecmp( $a->title, $b->title );
+    } );
 
     if ( empty( $rooms ) ) {
         return lgf_calendar_view_get_empty_calendar_result( $month, $year, $days_in_month );

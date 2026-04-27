@@ -21,10 +21,18 @@ SELECT
     r.id AS external_room_id,
     r.code AS room_code,
     r.name AS room_name,
-    ROW_NUMBER() OVER (ORDER BY r.code, r.name) AS sort_order,
+    CASE upper(r.code)
+        WHEN 'ANE' THEN 1
+        WHEN 'DEL' THEN 2
+        WHEN 'LYS' THEN 3
+        WHEN 'TOU' THEN 4
+        WHEN 'TUL' THEN 5
+        WHEN 'COQ' THEN 6
+        ELSE 999
+    END AS sort_order,
     CASE WHEN r.active THEN 1 ELSE 0 END AS active
 FROM rooms r
-ORDER BY r.code, r.name;
+ORDER BY sort_order, r.name;
 SQL
 
 cat <<'SQL' | docker exec -i "$PG_CONTAINER" psql -U "$PG_USER" -d "$PG_DB" --csv > "$BOOKINGS_CSV"
@@ -39,13 +47,14 @@ SELECT
     b.children,
     b.total_amount,
     ROUND((b.total_amount / GREATEST(room_counts.room_count, 1))::numeric, 2) AS room_amount,
+    NULL::numeric(10,2) AS extras_amount,
     room_counts.room_count,
     b.source_channel,
     COALESCE(b.source_booking_id, '') AS source_booking_id,
     COALESCE(bc.label, b.source_channel) AS channel_label,
     trim(concat_ws(' ', g.first_name, g.last_name)) AS guest_name,
     COALESCE(g.phone, '') AS phone,
-    COALESCE(b.internal_notes, '') AS internal_notes,
+    COALESCE(b.internal_notes, '') AS import_notes,
     COALESCE(b.invoice_ninja_client_id, '') AS invoice_ninja_client_id,
     COALESCE(b.invoice_ninja_invoice_id, '') AS invoice_ninja_invoice_id,
     to_char(b.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS') AS source_created_at
@@ -63,38 +72,43 @@ WHERE bs.blocks_availability = true
 ORDER BY b.check_in_date, b.id, br.id;
 SQL
 
-ROOMS_CONTAINER_CSV="/tmp/lgf-sync-rooms.csv"
-BOOKINGS_CONTAINER_CSV="/tmp/lgf-sync-bookings.csv"
+python3 - <<'PY' "$ROOMS_CSV" "$BOOKINGS_CSV" "$IMPORT_SQL"
+import csv, sys
+rooms_csv, bookings_csv, out_sql = sys.argv[1:4]
 
-docker cp "$ROOMS_CSV" "$WP_DB_CONTAINER:$ROOMS_CONTAINER_CSV"
-docker cp "$BOOKINGS_CSV" "$WP_DB_CONTAINER:$BOOKINGS_CONTAINER_CSV"
+def sql_value(value):
+    if value is None or value == '':
+        return 'NULL'
+    return "'" + str(value).replace('\\', '\\\\').replace("'", "''") + "'"
 
-cat > "$IMPORT_SQL" <<SQL
-SET FOREIGN_KEY_CHECKS=0;
-TRUNCATE TABLE wp_lgf_calendar_sync_bookings;
-TRUNCATE TABLE wp_lgf_calendar_sync_rooms;
-LOAD DATA INFILE '${ROOMS_CONTAINER_CSV}'
-INTO TABLE wp_lgf_calendar_sync_rooms
-FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
-LINES TERMINATED BY '\n'
-IGNORE 1 LINES
-(external_room_id, room_code, room_name, sort_order, active);
-LOAD DATA INFILE '${BOOKINGS_CONTAINER_CSV}'
-INTO TABLE wp_lgf_calendar_sync_bookings
-FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
-LINES TERMINATED BY '\n'
-IGNORE 1 LINES
-(external_booking_id, external_booking_room_id, external_room_id, status_code, check_in, check_out, adults, children, total_amount, room_amount, room_count, source_channel, source_booking_id, channel_label, guest_name, phone, internal_notes, invoice_ninja_client_id, invoice_ninja_invoice_id, source_created_at);
-UPDATE wp_lgf_calendar_sync_bookings b
-JOIN wp_lgf_calendar_sync_rooms r ON r.external_room_id = b.external_room_id
-SET b.room_sync_id = r.id;
-UPDATE wp_lgf_calendar_sync_rooms SET synced_at = NOW();
-UPDATE wp_lgf_calendar_sync_bookings SET synced_at = NOW();
-SET FOREIGN_KEY_CHECKS=1;
-SQL
+with open(out_sql, 'w', encoding='utf-8') as out:
+    out.write("SET FOREIGN_KEY_CHECKS=0;\n")
+    out.write("TRUNCATE TABLE wp_lgf_calendar_sync_bookings;\n")
+    out.write("TRUNCATE TABLE wp_lgf_calendar_sync_rooms;\n")
+
+    with open(rooms_csv, newline='', encoding='utf-8') as fh:
+        for row in csv.DictReader(fh):
+            out.write(
+                "INSERT INTO wp_lgf_calendar_sync_rooms "
+                "(external_room_id, room_code, room_name, sort_order, active) VALUES "
+                f"({sql_value(row['external_room_id'])}, {sql_value(row['room_code'])}, {sql_value(row['room_name'])}, {sql_value(row['sort_order'])}, {sql_value(row['active'])});\n"
+            )
+
+    with open(bookings_csv, newline='', encoding='utf-8') as fh:
+        for row in csv.DictReader(fh):
+            out.write(
+                "INSERT INTO wp_lgf_calendar_sync_bookings "
+                "(external_booking_id, external_booking_room_id, external_room_id, status_code, check_in, check_out, adults, children, total_amount, room_amount, extras_amount, room_count, source_channel, source_booking_id, channel_label, guest_name, phone, import_notes, invoice_ninja_client_id, invoice_ninja_invoice_id, source_created_at) VALUES "
+                f"({sql_value(row['external_booking_id'])}, {sql_value(row['external_booking_room_id'])}, {sql_value(row['external_room_id'])}, {sql_value(row['status_code'])}, {sql_value(row['check_in'])}, {sql_value(row['check_out'])}, {sql_value(row['adults'])}, {sql_value(row['children'])}, {sql_value(row['total_amount'])}, {sql_value(row['room_amount'])}, {sql_value(row['extras_amount'])}, {sql_value(row['room_count'])}, {sql_value(row['source_channel'])}, {sql_value(row['source_booking_id'])}, {sql_value(row['channel_label'])}, {sql_value(row['guest_name'])}, {sql_value(row['phone'])}, {sql_value(row['import_notes'])}, {sql_value(row['invoice_ninja_client_id'])}, {sql_value(row['invoice_ninja_invoice_id'])}, {sql_value(row['source_created_at'])});\n"
+            )
+
+    out.write("UPDATE wp_lgf_calendar_sync_bookings b JOIN wp_lgf_calendar_sync_rooms r ON r.external_room_id = b.external_room_id SET b.room_sync_id = r.id;\n")
+    out.write("UPDATE wp_lgf_calendar_sync_rooms SET synced_at = NOW();\n")
+    out.write("UPDATE wp_lgf_calendar_sync_bookings SET synced_at = NOW();\n")
+    out.write("SET FOREIGN_KEY_CHECKS=1;\n")
+PY
 
 docker exec -i "$WP_DB_CONTAINER" mariadb -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DB" < "$IMPORT_SQL"
-docker exec "$WP_DB_CONTAINER" rm -f "$ROOMS_CONTAINER_CSV" "$BOOKINGS_CONTAINER_CSV"
 
 echo "Synced rooms: $(tail -n +2 "$ROOMS_CSV" | wc -l)"
 echo "Synced booking-room rows: $(tail -n +2 "$BOOKINGS_CSV" | wc -l)"

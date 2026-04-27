@@ -71,9 +71,9 @@
     position: sticky;
     left: 0;
     z-index: 4;
-    min-width: 168px;
-    width: 168px;
-    max-width: 168px;
+    min-width: 118px;
+    width: 118px;
+    max-width: 118px;
     border-right: 1px solid #000;
 }
 
@@ -135,14 +135,6 @@
 .lgf-calendar-view .calendar-grid .calendar-note-input.is-error,
 .lgf-calendar-view .calendar-grid .calendar-booking-input.is-error { background: rgba(220, 38, 38, 0.14); }
 
-.lgf-calendar-view .calendar-grid .create-invoice-button {
-    font-size: 10px;
-    padding: 2px 6px;
-    line-height: 1.2;
-    white-space: nowrap;
-}
-.lgf-calendar-view .calendar-grid .create-invoice-button.saving { opacity: 0.6; }
-
 .lgf-calendar-view .calendar-grid .room-name-row .room-label-cell,
 .lgf-calendar-view .calendar-grid .room-name-row td.calendar-cell {
     background: rgba(0, 0, 0, 0.85);
@@ -155,6 +147,7 @@
 .lgf-calendar-view .calendar-grid .room-name-row td[data-room-color="#a9d18e"] { background: linear-gradient(rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.85)), #a9cf90; }
 .lgf-calendar-view .calendar-grid .room-name-row td[data-room-color="#ffe699"] { background: linear-gradient(rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.85)), #fde39b; }
 .lgf-calendar-view .calendar-grid .room-name-row td[data-room-color="#f4b183"] { background: linear-gradient(rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.85)), #f4b07d; }
+.lgf-calendar-view .calendar-grid .room-name-row td[data-room-color="#cccccc"] { background: linear-gradient(rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.85)), #c8c8c8; }
 
 .lgf-calendar-view .calendar-grid .room-name-row .room-label-cell { z-index: 5; }
 .lgf-calendar-view .calendar-grid .room-label-cell.detail,
@@ -164,6 +157,8 @@
 .lgf-calendar-view .calendar-grid .guest-row td,
 .lgf-calendar-view .calendar-grid .channel-row .room-label-cell,
 .lgf-calendar-view .calendar-grid .channel-row td,
+.lgf-calendar-view .calendar-grid .import-row .room-label-cell,
+.lgf-calendar-view .calendar-grid .import-row td,
 .lgf-calendar-view .calendar-grid .occupancy-row .room-label-cell,
 .lgf-calendar-view .calendar-grid .occupancy-row td,
 .lgf-calendar-view .calendar-grid .extras-row .room-label-cell,
@@ -177,6 +172,8 @@
 .lgf-calendar-view .calendar-grid .guest-row td,
 .lgf-calendar-view .calendar-grid .channel-row .room-label-cell,
 .lgf-calendar-view .calendar-grid .channel-row td,
+.lgf-calendar-view .calendar-grid .import-row .room-label-cell,
+.lgf-calendar-view .calendar-grid .import-row td,
 .lgf-calendar-view .calendar-grid .occupancy-row .room-label-cell,
 .lgf-calendar-view .calendar-grid .occupancy-row td,
 .lgf-calendar-view .calendar-grid .extras-row .room-label-cell,
@@ -196,6 +193,8 @@
 .lgf-calendar-view .calendar-grid .guest-row td[data-room-color="#cc99ff"],
 .lgf-calendar-view .calendar-grid .channel-row .room-label-cell[data-room-color="#cc99ff"],
 .lgf-calendar-view .calendar-grid .channel-row td[data-room-color="#cc99ff"],
+.lgf-calendar-view .calendar-grid .import-row .room-label-cell[data-room-color="#cc99ff"],
+.lgf-calendar-view .calendar-grid .import-row td[data-room-color="#cc99ff"],
 .lgf-calendar-view .calendar-grid .occupancy-row .room-label-cell[data-room-color="#cc99ff"],
 .lgf-calendar-view .calendar-grid .occupancy-row td[data-room-color="#cc99ff"],
 .lgf-calendar-view .calendar-grid .extras-row .room-label-cell[data-room-color="#cc99ff"],
@@ -207,6 +206,8 @@
 .lgf-calendar-view .calendar-grid .guest-row td[data-room-color="#b4c7e7"],
 .lgf-calendar-view .calendar-grid .channel-row .room-label-cell[data-room-color="#b4c7e7"],
 .lgf-calendar-view .calendar-grid .channel-row td[data-room-color="#b4c7e7"],
+.lgf-calendar-view .calendar-grid .import-row .room-label-cell[data-room-color="#b4c7e7"],
+.lgf-calendar-view .calendar-grid .import-row td[data-room-color="#b4c7e7"],
 .lgf-calendar-view .calendar-grid .occupancy-row .room-label-cell[data-room-color="#b4c7e7"],
 .lgf-calendar-view .calendar-grid .occupancy-row td[data-room-color="#b4c7e7"],
 .lgf-calendar-view .calendar-grid .extras-row .room-label-cell[data-room-color="#b4c7e7"],
@@ -218,6 +219,8 @@
 .lgf-calendar-view .calendar-grid .guest-row td[data-room-color="#a9d18e"],
 .lgf-calendar-view .calendar-grid .channel-row .room-label-cell[data-room-color="#a9d18e"],
 .lgf-calendar-view .calendar-grid .channel-row td[data-room-color="#a9d18e"],
+.lgf-calendar-view .calendar-grid .import-row .room-label-cell[data-room-color="#a9d18e"],
+.lgf-calendar-view .calendar-grid .import-row td[data-room-color="#a9d18e"],
 .lgf-calendar-view .calendar-grid .occupancy-row .room-label-cell[data-room-color="#a9d18e"],
 .lgf-calendar-view .calendar-grid .occupancy-row td[data-room-color="#a9d18e"],
 .lgf-calendar-view .calendar-grid .extras-row .room-label-cell[data-room-color="#a9d18e"],
@@ -229,6 +232,8 @@
 .lgf-calendar-view .calendar-grid .guest-row td[data-room-color="#ffe699"],
 .lgf-calendar-view .calendar-grid .channel-row .room-label-cell[data-room-color="#ffe699"],
 .lgf-calendar-view .calendar-grid .channel-row td[data-room-color="#ffe699"],
+.lgf-calendar-view .calendar-grid .import-row .room-label-cell[data-room-color="#ffe699"],
+.lgf-calendar-view .calendar-grid .import-row td[data-room-color="#ffe699"],
 .lgf-calendar-view .calendar-grid .occupancy-row .room-label-cell[data-room-color="#ffe699"],
 .lgf-calendar-view .calendar-grid .occupancy-row td[data-room-color="#ffe699"],
 .lgf-calendar-view .calendar-grid .extras-row .room-label-cell[data-room-color="#ffe699"],
@@ -240,6 +245,8 @@
 .lgf-calendar-view .calendar-grid .guest-row td[data-room-color="#f4b183"],
 .lgf-calendar-view .calendar-grid .channel-row .room-label-cell[data-room-color="#f4b183"],
 .lgf-calendar-view .calendar-grid .channel-row td[data-room-color="#f4b183"],
+.lgf-calendar-view .calendar-grid .import-row .room-label-cell[data-room-color="#f4b183"],
+.lgf-calendar-view .calendar-grid .import-row td[data-room-color="#f4b183"],
 .lgf-calendar-view .calendar-grid .occupancy-row .room-label-cell[data-room-color="#f4b183"],
 .lgf-calendar-view .calendar-grid .occupancy-row td[data-room-color="#f4b183"],
 .lgf-calendar-view .calendar-grid .extras-row .room-label-cell[data-room-color="#f4b183"],
@@ -247,9 +254,23 @@
 .lgf-calendar-view .calendar-grid .tarif-row .room-label-cell[data-room-color="#f4b183"],
 .lgf-calendar-view .calendar-grid .tarif-row td[data-room-color="#f4b183"] { background: #f4b07d; }
 
+.lgf-calendar-view .calendar-grid .guest-row .room-label-cell[data-room-color="#cccccc"],
+.lgf-calendar-view .calendar-grid .guest-row td[data-room-color="#cccccc"],
+.lgf-calendar-view .calendar-grid .channel-row .room-label-cell[data-room-color="#cccccc"],
+.lgf-calendar-view .calendar-grid .channel-row td[data-room-color="#cccccc"],
+.lgf-calendar-view .calendar-grid .import-row .room-label-cell[data-room-color="#cccccc"],
+.lgf-calendar-view .calendar-grid .import-row td[data-room-color="#cccccc"],
+.lgf-calendar-view .calendar-grid .occupancy-row .room-label-cell[data-room-color="#cccccc"],
+.lgf-calendar-view .calendar-grid .occupancy-row td[data-room-color="#cccccc"],
+.lgf-calendar-view .calendar-grid .extras-row .room-label-cell[data-room-color="#cccccc"],
+.lgf-calendar-view .calendar-grid .extras-row td[data-room-color="#cccccc"],
+.lgf-calendar-view .calendar-grid .tarif-row .room-label-cell[data-room-color="#cccccc"],
+.lgf-calendar-view .calendar-grid .tarif-row td[data-room-color="#cccccc"] { background: #c8c8c8; }
+
 .lgf-calendar-view .calendar-grid .room-label-text { display: block; font-weight: 700; }
 .lgf-calendar-view .calendar-grid .guest-row .room-label-text,
 .lgf-calendar-view .calendar-grid .channel-row .room-label-text,
+.lgf-calendar-view .calendar-grid .import-row .room-label-text,
 .lgf-calendar-view .calendar-grid .occupancy-row .room-label-text,
 .lgf-calendar-view .calendar-grid .extras-row .room-label-text,
 .lgf-calendar-view .calendar-grid .tarif-row .room-label-text,
@@ -317,6 +338,7 @@
 .lgf-calendar-view .calendar-grid .room-name-row td:first-child,
 .lgf-calendar-view .calendar-grid .guest-row td:first-child,
 .lgf-calendar-view .calendar-grid .channel-row td:first-child,
+.lgf-calendar-view .calendar-grid .import-row td:first-child,
 .lgf-calendar-view .calendar-grid .occupancy-row td:first-child,
 .lgf-calendar-view .calendar-grid .extras-row td:first-child,
 .lgf-calendar-view .calendar-grid .tarif-row td:first-child,
@@ -325,6 +347,7 @@
 .lgf-calendar-view .calendar-grid .room-name-row td:last-child,
 .lgf-calendar-view .calendar-grid .guest-row td:last-child,
 .lgf-calendar-view .calendar-grid .channel-row td:last-child,
+.lgf-calendar-view .calendar-grid .import-row td:last-child,
 .lgf-calendar-view .calendar-grid .occupancy-row td:last-child,
 .lgf-calendar-view .calendar-grid .extras-row td:last-child,
 .lgf-calendar-view .calendar-grid .tarif-row td:last-child,
@@ -342,5 +365,5 @@
     .lgf-calendar-view .calendar-grid { min-width: 1950px; font-size: 11px; }
     .lgf-calendar-view .calendar-grid th,
     .lgf-calendar-view .calendar-grid td { width: 86px; font-size: 10px; height: 14px; }
-    .lgf-calendar-view .calendar-grid .sticky-col { min-width: 150px; width: 150px; max-width: 150px; }
+    .lgf-calendar-view .calendar-grid .sticky-col { min-width: 108px; width: 108px; max-width: 108px; }
 }

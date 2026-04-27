@@ -51,16 +51,17 @@ $calendar_base_url = $calendar_base_url ?? '';
                     <?php foreach ( $rooms as $index => $room ) :
                         $room_id = $room->id;
                         $color = $room->color ?? '#ccc';
-                        $room_number = $index + 1;
+                        $room_numbers = [ 'ANE' => 1, 'DEL' => 2, 'LYS' => 3, 'TOU' => 4, 'TUL' => 5, 'COQ' => 0 ];
+                        $room_number = $room_numbers[ $room->code ?? '' ] ?? ( $index + 1 );
                         $rows = [
                             [ 'label' => $room_number . ' - ' . $room->title, 'class' => 'room-name-row', 'type' => 'title', 'field' => 'booking_note' ],
                             [ 'label' => 'Name', 'class' => 'guest-row', 'type' => 'detail editable-text', 'field' => 'manual_guest_name', 'display_fn' => function( $b ) { return $b->guest_name ?? ''; } ],
                             [ 'label' => 'Channel', 'class' => 'channel-row', 'type' => 'detail', 'field' => '', 'display_fn' => function( $b ) { return $b->channel ?? ''; } ],
+                            [ 'label' => 'Import', 'class' => 'import-row', 'type' => 'detail', 'field' => '', 'display_fn' => function( $b ) { return $b->import_notes ?? ''; } ],
                             [ 'label' => 'Occupancy', 'class' => 'occupancy-row', 'type' => 'detail editable-occupancy', 'field' => 'occupancy', 'display_fn' => function( $b ) { return $b->occupancy_str ?? ''; } ],
+                            [ 'label' => 'Room rate', 'class' => 'tarif-row', 'type' => 'detail editable-decimal detail-tarif', 'field' => 'manual_tarif', 'display_fn' => function( $b ) { return isset( $b->tarif ) && '' !== $b->tarif && null !== $b->tarif ? number_format( (float) $b->tarif, 2, ',', ' ' ) . ' €' : ''; } ],
                             [ 'label' => 'Extras', 'class' => 'extras-row', 'type' => 'detail editable-text', 'field' => 'extras_formula', 'display_fn' => function( $b ) { return $b->extras_formula ?? ''; } ],
-                            [ 'label' => 'Tarif', 'class' => 'tarif-row', 'type' => 'detail editable-decimal detail-tarif', 'field' => 'manual_tarif', 'display_fn' => function( $b ) { return isset( $b->tarif ) && '' !== $b->tarif && null !== $b->tarif ? number_format( (float) $b->tarif, 2, ',', ' ' ) . ' €' : ''; } ],
                             [ 'label' => 'Commission', 'class' => 'commission-row', 'type' => 'detail editable-decimal detail-commission', 'field' => 'manual_commission', 'display_fn' => function( $b ) { return isset( $b->commission ) && '' !== $b->commission && null !== $b->commission ? number_format( (float) $b->commission, 2, ',', ' ' ) . ' €' : ''; } ],
-                            [ 'label' => 'Invoice', 'class' => 'invoice-row', 'type' => 'action', 'field' => 'create_invoice', 'display_fn' => function( $b ) { return ''; } ],
                         ];
 
                         foreach ( $rows as $row_index => $row ) :
