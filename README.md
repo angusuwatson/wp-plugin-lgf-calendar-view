@@ -1,6 +1,6 @@
 # LGF Calendar View Plugin
 
-A WordPress plugin to display MotoPress Hotel Booking data or bookings from the standalone LGF PostgreSQL database in a LibreOffice Calc-style spreadsheet layout.
+A WordPress plugin to display MotoPress Hotel Booking data, locally synced LGF database data, or direct PostgreSQL LGF data in a LibreOffice Calc-style spreadsheet layout.
 
 ## Features
 
@@ -50,7 +50,7 @@ A WordPress plugin to display MotoPress Hotel Booking data or bookings from the 
 1. Upload the plugin files to the `/wp-content/plugins/lgf-calendar-view` directory, or install the plugin through the WordPress plugins screen directly.
 2. Activate the plugin through the 'Plugins' screen in WordPress.
 3. If using the MotoPress source, ensure MotoPress Hotel Booking is installed and active.
-4. If using the Local WordPress sync source, run `python3 scripts/sync_lgf_to_wp_local.py` to copy data from the LGF PostgreSQL database into the plugin's WordPress sync tables, then switch the booking source to **Local WordPress sync tables**.
+4. If using the Local WordPress sync source, run `scripts/sync-lgf-db-to-wp.sh` to copy data from the LGF PostgreSQL database into the plugin's WordPress sync tables, then switch the booking source to **Local WordPress sync tables**.
 5. If using the direct LGF PostgreSQL source, open **LGF Calendar → Settings** and enter the PostgreSQL connection details for your `lgf_bookings` database, then switch the booking source to **External PostgreSQL**.
 6. Access the calendar via the **LGF Calendar** admin menu or use the shortcode `[lgf_calendar_view]` on any page or post.
 7. Optionally, pass attributes: `[lgf_calendar_view month="3" year="2026"]`
