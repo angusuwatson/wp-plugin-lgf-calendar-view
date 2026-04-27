@@ -60,6 +60,7 @@ $calendar_base_url = $calendar_base_url ?? '';
                             [ 'label' => 'Extras', 'class' => 'extras-row', 'type' => 'detail editable-text', 'field' => 'extras_formula', 'display_fn' => function( $b ) { return $b->extras_formula ?? ''; } ],
                             [ 'label' => 'Tarif', 'class' => 'tarif-row', 'type' => 'detail editable-decimal detail-tarif', 'field' => 'manual_tarif', 'display_fn' => function( $b ) { return isset( $b->tarif ) && '' !== $b->tarif && null !== $b->tarif ? number_format( (float) $b->tarif, 2, ',', ' ' ) . ' €' : ''; } ],
                             [ 'label' => 'Commission', 'class' => 'commission-row', 'type' => 'detail editable-decimal detail-commission', 'field' => 'manual_commission', 'display_fn' => function( $b ) { return isset( $b->commission ) && '' !== $b->commission && null !== $b->commission ? number_format( (float) $b->commission, 2, ',', ' ' ) . ' €' : ''; } ],
+                            [ 'label' => 'Invoice', 'class' => 'invoice-row', 'type' => 'action', 'field' => 'create_invoice', 'display_fn' => function( $b ) { return ''; } ],
                         ];
 
                         foreach ( $rows as $row_index => $row ) :
@@ -105,6 +106,10 @@ $calendar_base_url = $calendar_base_url ?? '';
                                         <input type="text" class="calendar-booking-input calendar-money-input" data-field="manual_tarif" data-booking-id="<?php echo esc_attr( $booking->id ); ?>" data-room-id="<?php echo esc_attr( $booking->room_id ); ?>" data-reserved-room-id="<?php echo esc_attr( $booking->reserved_room_id ); ?>" value="<?php echo esc_attr( isset( $booking->tarif ) && '' !== $booking->tarif ? number_format( (float) $booking->tarif, 2, '.', '' ) : '' ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Tarif for room %1$s on %2$s', 'lgf-calendar-view' ), $room->title, $date_str ) ); ?>" />
                                     <?php elseif ( $booking && 'commission-row' === $row['class'] ) : ?>
                                         <input type="text" class="calendar-booking-input calendar-money-input" data-field="manual_commission" data-booking-id="<?php echo esc_attr( $booking->id ); ?>" data-room-id="<?php echo esc_attr( $booking->room_id ); ?>" data-reserved-room-id="<?php echo esc_attr( $booking->reserved_room_id ); ?>" value="<?php echo esc_attr( isset( $booking->commission ) && '' !== $booking->commission ? number_format( (float) $booking->commission, 2, '.', '' ) : '' ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Commission for room %1$s on %2$s', 'lgf-calendar-view' ), $room->title, $date_str ) ); ?>" />
+                                    <?php elseif ( $booking && 'invoice-row' === $row['class'] ) : ?>
+                                        <button type="button" class="button button-small create-invoice-button" data-booking-id="<?php echo esc_attr( $booking->id ); ?>" data-reserved-room-id="<?php echo esc_attr( $booking->reserved_room_id ); ?>">
+                                            <?php esc_html_e( 'Create Invoice', 'lgf-calendar-view' ); ?>
+                                        </button>
                                     <?php else : ?>
                                         <?php echo esc_html( $display_value ); ?>
                                     <?php endif; ?>

@@ -1,81 +1,72 @@
 # LGF Calendar View Plugin
 
-A WordPress plugin to display Motopress Hotel Booking data in a LibreOffice Calc-style spreadsheet layout.
+A WordPress plugin to display MotoPress Hotel Booking data or bookings from the standalone LGF PostgreSQL database in a LibreOffice Calc-style spreadsheet layout.
 
 ## Features
 
 ### Calendar View
-- **Spreadsheet-style layout**: Rooms as rows, days as columns, matching the LibreOffice Calc booking sheet format
-- **Color-coded rooms**: Each room has a distinct background color
-- **Month navigation**: Tab-based month navigation with URL persistence
-- **REST API**: Dynamic AJAX loading of calendar data without page refreshes
+- Spreadsheet-style layout matching the LibreOffice Calc booking sheet format
+- Color-coded rooms
+- Month navigation with URL persistence
+- REST API-powered dynamic loading
 
 ### Booking Data Display
-- **Guest names**: Automatically fetched from booking data, with manual override support
-- **Channel tracking**: Website (W) vs Imported (I) bookings with creation date
-- **Occupancy**: Adults (A) and Children (C) count with inline editing
-- **Extras**: Trackable extras with formula evaluation (e.g., `=12.50+8.00`)
-- **Tarif**: Room rate with currency formatting
-- **Commission**: Booking.com commission tracking
+- Guest names with manual override support
+- Channel tracking
+- Occupancy editing
+- Extras formula support (for example `=12.50+8.00`)
+- Tarif and commission tracking
 
-### Daily Notes
-- **Per-day notes**: Add notes to any calendar day
-- **Auto-save**: Notes save automatically when edited
+### Data Sources
+- MotoPress / WordPress booking source
+- External PostgreSQL booking source using the LGF database project schema
+- Automatic MotoPress dependency checks only when that source is selected
 
-### Booking Overlays
-- **Manual data entry**: Override guest name, occupancy, tarif, commission, and extras per booking
-- **Persistent storage**: Overlay data stored in custom database tables
-- **Caching**: Calendar data cached for performance (30 minutes)
+### Daily Notes and Overlays
+- Per-day notes with auto-save
+- Manual overlay storage for guest name, occupancy, tarif, commission, extras, and booking notes
+- Cached calendar rendering for performance
 
 ### Invoice Ninja Integration
-- **Invoice creation**: Create invoices directly from bookings
-- **Settings page**: Configure Invoice Ninja API URL and token
-- **Line items**: Automatically generates invoice with room charge, extras, and commission offset
+- Settings page for Invoice Ninja credentials
+- Per-room invoice creation button
+- Room charge, extras, and commission line generation
 
 ### Admin Integration
-- **Admin menu**: Access via WordPress admin sidebar
-- **Shortcode**: Use `[lgf_calendar_view]` on any page or post
-- **Capability check**: Only administrators can access
+- WordPress admin menu
+- Shortcode support via `[lgf_calendar_view]`
+- Administrator-only access
 
 ## Requirements
 
 - WordPress 5.0+
-- Motopress Hotel Booking plugin installed and active
 - PHP 7.4+
+- MotoPress Hotel Booking plugin installed and active when using the MotoPress source
+- PHP `pgsql` extension when using the external PostgreSQL source
 
 ## Installation
 
 1. Upload the plugin files to the `/wp-content/plugins/lgf-calendar-view` directory, or install the plugin through the WordPress plugins screen directly.
 2. Activate the plugin through the 'Plugins' screen in WordPress.
-3. Ensure Motopress Hotel Booking plugin is installed and active.
-4. Access the calendar via the "LGF Calendar" admin menu.
-
-### Shortcode Usage
-
-Basic usage:
-```
-[lgf_calendar_view]
-```
-
-With specific month/year:
-```
-[lgf_calendar_view month="3" year="2026"]
-```
+3. If using the MotoPress source, ensure MotoPress Hotel Booking is installed and active.
+4. If using the LGF PostgreSQL source, open **LGF Calendar → Settings** and enter the PostgreSQL connection details for your `lgf_bookings` database, then switch the booking source to **External PostgreSQL**.
+5. Access the calendar via the **LGF Calendar** admin menu or use the shortcode `[lgf_calendar_view]` on any page or post.
+6. Optionally, pass attributes: `[lgf_calendar_view month="3" year="2026"]`
 
 ### Invoice Ninja Setup
 
-1. Go to LGF Calendar > Settings
-2. Enter your Invoice Ninja URL (e.g., `https://your-invoice-ninja.com`)
-3. Enter your API token
-4. Save settings
+1. Go to **LGF Calendar → Settings**.
+2. Enter your Invoice Ninja URL.
+3. Enter your API token.
+4. Save settings.
 
 ## Technical Notes
 
-- **Database tables**: Creates `wp_lgf_calendar_daily_notes` and `wp_lgf_calendar_booking_overlays`
-- **Transients**: Calendar data cached with key `lgf_calendar_{year}_{month}`
-- **Polylang compatible**: Filters rooms by current language if Polylang is active
-- **Template override**: Copy `templates/booking-view.php` to your theme's `lgf-calendar-view/` directory
-- **All output escaped**: Security-first approach with proper escaping throughout
+- Creates `wp_lgf_calendar_daily_notes` and `wp_lgf_calendar_booking_overlays`.
+- Caches calendar data with source-aware transient keys.
+- Supports theme override via `templates/booking-view.php` copied into `your-theme/lgf-calendar-view/`.
+- External PostgreSQL mode expects the schema from `/home/angus/.pi/projects/lgf-database`.
+- All output is escaped for security.
 
 ## Development
 
