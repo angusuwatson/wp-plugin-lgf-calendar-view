@@ -1225,16 +1225,11 @@ function lgf_calendar_view_render_add_booking_page() {
         'phone' => '',
         'check_in' => '',
         'check_out' => '',
-        'room_sync_id' => '',
         'source_channel' => 'direct',
         'status_code' => 'confirmed',
-        'adults' => 2,
-        'children' => 0,
-        'babies' => 0,
-        'room_rate_amount' => '0.00',
-        'extras_amount' => '0.00',
         'contacted_date' => gmdate( 'Y-m-d' ),
         'import_notes' => '',
+        'room_lines' => [ [ 'room_sync_id' => '', 'adults' => 2, 'children' => 0, 'babies' => 0, 'room_rate_amount' => '0.00', 'extras_amount' => '0.00' ] ],
     ];
     $form_data = array_merge( $defaults, wp_unslash( $_POST ) );
 
@@ -1277,7 +1272,11 @@ function lgf_calendar_view_render_add_booking_page() {
     if ( $error_message ) {
         echo '<div class="notice notice-error"><p>' . esc_html( $error_message ) . '</p></div>';
     }
-    echo '<p>' . esc_html__( 'Choose dates first, then select from rooms that are still available.', 'lgf-calendar-view' ) . '</p>';
+    if ( isset( $_POST['lgf_add_room_line'] ) && is_array( $form_data['room_lines'] ) ) {
+        $form_data['room_lines'][] = [ 'room_sync_id' => '', 'adults' => 2, 'children' => 0, 'babies' => 0, 'room_rate_amount' => '0.00', 'extras_amount' => '0.00' ];
+    }
+
+    echo '<p>' . esc_html__( 'Choose dates first, then add one or more available rooms for the same booking.', 'lgf-calendar-view' ) . '</p>';
     echo '<form method="post">';
     wp_nonce_field( 'lgf_calendar_add_booking', 'lgf_calendar_add_booking_nonce' );
     echo '<table class="form-table">';
@@ -1285,18 +1284,38 @@ function lgf_calendar_view_render_add_booking_page() {
     echo '<tr><th><label for="phone">' . esc_html__( 'Phone', 'lgf-calendar-view' ) . '</label></th><td><input type="text" name="phone" id="phone" class="regular-text" value="' . esc_attr( (string) $form_data['phone'] ) . '" /></td></tr>';
     echo '<tr><th><label for="check_in">' . esc_html__( 'Check-in', 'lgf-calendar-view' ) . '</label></th><td><input required type="date" name="check_in" id="check_in" value="' . esc_attr( $check_in_value ) . '" onchange="var o=document.getElementById(\'check_out\');if(this.value&&o&&(!o.value||o.value<=this.value)){var d=new Date(this.value+\'T00:00:00\');d.setDate(d.getDate()+1);o.value=d.toISOString().slice(0,10);} this.form.submit();" /></td></tr>';
     echo '<tr><th><label for="check_out">' . esc_html__( 'Check-out', 'lgf-calendar-view' ) . '</label></th><td><input required type="date" name="check_out" id="check_out" value="' . esc_attr( $check_out_value ) . '" onchange="this.form.submit();" /></td></tr>';
-    echo '<tr><th><label for="room_sync_id">' . esc_html__( 'Room', 'lgf-calendar-view' ) . '</label></th><td><select name="room_sync_id" id="room_sync_id" required ' . ( $dates_ready ? '' : 'disabled' ) . '>';
-    echo '<option value="">' . esc_html__( $dates_ready ? 'Select an available room' : 'Choose dates first', 'lgf-calendar-view' ) . '</option>';
+    echo '<tr><th scope="row">' . esc_html__( 'Rooms', 'lgf-calendar-view' ) . '</th><td>';
     $room_numbers = [ 'ANE' => 1, 'DEL' => 2, 'LYS' => 3, 'TOU' => 4, 'TUL' => 5, 'COQ' => 0 ];
-    foreach ( $rooms as $room ) {
-        $room_code = (string) $room['room_code'];
-        $room_number = $room_numbers[ $room_code ] ?? '';
-        echo '<option value="' . esc_attr( $room['id'] ) . '"' . selected( (string) $form_data['room_sync_id'], (string) $room['id'], false ) . '>' . esc_html( $room_number . ' - ' . $room['room_name'] ) . '</option>';
+    $selected_room_ids = [];
+    foreach ( (array) $form_data['room_lines'] as $line_index => $line ) {
+        echo '<fieldset style="margin:0 0 16px 0;padding:12px;border:1px solid #ccd0d4;">';
+        echo '<legend><strong>' . esc_html( sprintf( __( 'Room %d', 'lgf-calendar-view' ), $line_index + 1 ) ) . '</strong></legend>';
+        echo '<p><label>' . esc_html__( 'Room', 'lgf-calendar-view' ) . ' <select name="room_lines[' . esc_attr( $line_index ) . '][room_sync_id]" ' . ( $dates_ready ? '' : 'disabled' ) . ' required>';
+        echo '<option value="">' . esc_html__( $dates_ready ? 'Select an available room' : 'Choose dates first', 'lgf-calendar-view' ) . '</option>';
+        foreach ( $rooms as $room ) {
+            $room_id_value = (string) $room['id'];
+            $is_selected_elsewhere = in_array( $room_id_value, $selected_room_ids, true );
+            $current_selected = (string) ( $line['room_sync_id'] ?? '' );
+            if ( $is_selected_elsewhere && $current_selected !== $room_id_value ) {
+                continue;
+            }
+            $room_code = (string) $room['room_code'];
+            $room_number = $room_numbers[ $room_code ] ?? '';
+            echo '<option value="' . esc_attr( $room_id_value ) . '"' . selected( $current_selected, $room_id_value, false ) . '>' . esc_html( $room_number . ' - ' . $room['room_name'] ) . '</option>';
+        }
+        echo '</select></label></p>';
+        $selected_room_ids[] = (string) ( $line['room_sync_id'] ?? '' );
+        echo '<p><label>' . esc_html__( 'Adults', 'lgf-calendar-view' ) . ' <input type="number" min="0" name="room_lines[' . esc_attr( $line_index ) . '][adults]" value="' . esc_attr( (string) ( $line['adults'] ?? 0 ) ) . '" /></label> ';
+        echo '<label>' . esc_html__( 'Children', 'lgf-calendar-view' ) . ' <input type="number" min="0" name="room_lines[' . esc_attr( $line_index ) . '][children]" value="' . esc_attr( (string) ( $line['children'] ?? 0 ) ) . '" /></label> ';
+        echo '<label>' . esc_html__( 'Babies', 'lgf-calendar-view' ) . ' <input type="number" min="0" name="room_lines[' . esc_attr( $line_index ) . '][babies]" value="' . esc_attr( (string) ( $line['babies'] ?? 0 ) ) . '" /></label></p>';
+        echo '<p><label>' . esc_html__( 'Room rate total', 'lgf-calendar-view' ) . ' <input type="text" name="room_lines[' . esc_attr( $line_index ) . '][room_rate_amount]" value="' . esc_attr( (string) ( $line['room_rate_amount'] ?? '0.00' ) ) . '" /></label> ';
+        echo '<label>' . esc_html__( 'Extras total', 'lgf-calendar-view' ) . ' <input type="text" name="room_lines[' . esc_attr( $line_index ) . '][extras_amount]" value="' . esc_attr( (string) ( $line['extras_amount'] ?? '0.00' ) ) . '" /></label></p>';
+        echo '</fieldset>';
     }
-    echo '</select>';
     if ( $dates_ready && empty( $rooms ) ) {
         echo '<p class="description">' . esc_html__( 'No rooms are available for those dates.', 'lgf-calendar-view' ) . '</p>';
     }
+    submit_button( __( 'Add another room', 'lgf-calendar-view' ), 'secondary', 'lgf_add_room_line', false );
     echo '</td></tr>';
     echo '<tr><th><label for="source_channel">' . esc_html__( 'Channel', 'lgf-calendar-view' ) . '</label></th><td><select name="source_channel" id="source_channel">';
     foreach ( $channels as $code => $label ) {
@@ -1308,11 +1327,6 @@ function lgf_calendar_view_render_add_booking_page() {
         echo '<option value="' . esc_attr( $code ) . '"' . selected( (string) $form_data['status_code'], $code, false ) . '>' . esc_html( $label ) . '</option>';
     }
     echo '</select></td></tr>';
-    echo '<tr><th><label for="adults">' . esc_html__( 'Adults', 'lgf-calendar-view' ) . '</label></th><td><input type="number" min="0" name="adults" id="adults" value="' . esc_attr( (string) $form_data['adults'] ) . '" /></td></tr>';
-    echo '<tr><th><label for="children">' . esc_html__( 'Children', 'lgf-calendar-view' ) . '</label></th><td><input type="number" min="0" name="children" id="children" value="' . esc_attr( (string) $form_data['children'] ) . '" /></td></tr>';
-    echo '<tr><th><label for="babies">' . esc_html__( 'Babies', 'lgf-calendar-view' ) . '</label></th><td><input type="number" min="0" name="babies" id="babies" value="' . esc_attr( (string) $form_data['babies'] ) . '" /></td></tr>';
-    echo '<tr><th><label for="room_rate_amount">' . esc_html__( 'Room rate total', 'lgf-calendar-view' ) . '</label></th><td><input type="text" name="room_rate_amount" id="room_rate_amount" value="' . esc_attr( (string) $form_data['room_rate_amount'] ) . '" /></td></tr>';
-    echo '<tr><th><label for="extras_amount">' . esc_html__( 'Extras total', 'lgf-calendar-view' ) . '</label></th><td><input type="text" name="extras_amount" id="extras_amount" value="' . esc_attr( (string) $form_data['extras_amount'] ) . '" /></td></tr>';
     echo '<tr><th><label for="contacted_date">' . esc_html__( 'Contacted date', 'lgf-calendar-view' ) . '</label></th><td><input type="date" name="contacted_date" id="contacted_date" value="' . esc_attr( (string) $form_data['contacted_date'] ) . '" /></td></tr>';
     echo '<tr><th><label for="import_notes">' . esc_html__( 'Import / internal notes', 'lgf-calendar-view' ) . '</label></th><td><textarea name="import_notes" id="import_notes" rows="4" class="large-text">' . esc_textarea( (string) $form_data['import_notes'] ) . '</textarea></td></tr>';
     echo '</table>';
@@ -1506,35 +1520,59 @@ function lgf_calendar_view_validate_booking_form_data( $data ) {
         return new WP_Error( 'invalid_dates', __( 'Check-in and check-out dates are invalid.', 'lgf-calendar-view' ) );
     }
 
-    $adults = max( 0, (int) ( $data['adults'] ?? 0 ) );
-    $children = max( 0, (int) ( $data['children'] ?? 0 ) );
-    $babies = max( 0, (int) ( $data['babies'] ?? 0 ) );
-    $guest_count = $adults + $children + $babies;
     $nights = max( 1, (int) round( ( strtotime( $check_out ) - strtotime( $check_in ) ) / DAY_IN_SECONDS ) );
-
-    $room_rate_amount = max( 0, (float) lgf_calendar_view_normalize_decimal( $data['room_rate_amount'] ?? 0 ) );
-    $extras_amount = max( 0, (float) lgf_calendar_view_normalize_decimal( $data['extras_amount'] ?? 0 ) );
-    $tourist_tax_total = round( $adults * 0.80 * $nights, 2 );
-    $total_amount = round( $room_rate_amount + $extras_amount + $tourist_tax_total, 2 );
     $contacted_date = isset( $data['contacted_date'] ) ? (string) $data['contacted_date'] : '';
     if ( '' !== $contacted_date && ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $contacted_date ) ) {
         return new WP_Error( 'invalid_contacted_date', __( 'Contacted date is invalid.', 'lgf-calendar-view' ) );
+    }
+
+    $room_lines = isset( $data['room_lines'] ) && is_array( $data['room_lines'] ) ? $data['room_lines'] : [];
+    if ( empty( $room_lines ) ) {
+        return new WP_Error( 'missing_rooms', __( 'Add at least one room.', 'lgf-calendar-view' ) );
+    }
+
+    $validated_lines = [];
+    $selected_rooms = [];
+    foreach ( $room_lines as $index => $line ) {
+        $room_sync_id = absint( $line['room_sync_id'] ?? 0 );
+        if ( $room_sync_id <= 0 ) {
+            continue;
+        }
+        if ( in_array( $room_sync_id, $selected_rooms, true ) ) {
+            return new WP_Error( 'duplicate_room', __( 'The same room cannot be selected twice in one booking.', 'lgf-calendar-view' ) );
+        }
+        $selected_rooms[] = $room_sync_id;
+        $adults = max( 0, (int) ( $line['adults'] ?? 0 ) );
+        $children = max( 0, (int) ( $line['children'] ?? 0 ) );
+        $babies = max( 0, (int) ( $line['babies'] ?? 0 ) );
+        $guest_count = $adults + $children + $babies;
+        $room_rate_amount = max( 0, (float) lgf_calendar_view_normalize_decimal( $line['room_rate_amount'] ?? 0 ) );
+        $extras_amount = max( 0, (float) lgf_calendar_view_normalize_decimal( $line['extras_amount'] ?? 0 ) );
+        $tourist_tax_total = round( $adults * 0.80 * $nights, 2 );
+        $total_amount = round( $room_rate_amount + $extras_amount + $tourist_tax_total, 2 );
+        $validated_lines[] = [
+            'room_sync_id' => $room_sync_id,
+            'adults' => $adults,
+            'children' => $children,
+            'babies' => $babies,
+            'guest_count' => $guest_count,
+            'room_rate_amount' => $room_rate_amount,
+            'extras_amount' => $extras_amount,
+            'tourist_tax_total' => $tourist_tax_total,
+            'total_amount' => $total_amount,
+        ];
+    }
+    if ( empty( $validated_lines ) ) {
+        return new WP_Error( 'missing_rooms', __( 'Select at least one room.', 'lgf-calendar-view' ) );
     }
 
     return [
         'guest_name' => $guest_name,
         'check_in' => $check_in,
         'check_out' => $check_out,
-        'adults' => $adults,
-        'children' => $children,
-        'babies' => $babies,
-        'guest_count' => $guest_count,
         'nights' => $nights,
-        'room_rate_amount' => $room_rate_amount,
-        'extras_amount' => $extras_amount,
-        'tourist_tax_total' => $tourist_tax_total,
-        'total_amount' => $total_amount,
         'contacted_date' => $contacted_date,
+        'room_lines' => $validated_lines,
     ];
 }
 
@@ -1564,23 +1602,12 @@ function lgf_calendar_view_create_wp_sync_booking( $data ) {
     $rooms_table = lgf_calendar_view_sync_rooms_table();
     $bookings_table = lgf_calendar_view_sync_bookings_table();
 
-    $room_sync_id = absint( $data['room_sync_id'] ?? 0 );
-    $room = $wpdb->get_row( $wpdb->prepare( "SELECT id, external_room_id, room_code, room_name FROM {$rooms_table} WHERE id = %d LIMIT 1", $room_sync_id ), ARRAY_A );
-    if ( ! $room ) {
-        return new WP_Error( 'invalid_room', __( 'Please select a valid room.', 'lgf-calendar-view' ) );
-    }
-
     $validated = lgf_calendar_view_validate_booking_form_data( $data );
     if ( is_wp_error( $validated ) ) {
         return $validated;
     }
 
     extract( $validated, EXTR_SKIP );
-
-    $availability = lgf_calendar_view_check_wp_sync_room_availability( $room_sync_id, $check_in, $check_out );
-    if ( is_wp_error( $availability ) ) {
-        return $availability;
-    }
 
     $source_channel = sanitize_text_field( (string) ( $data['source_channel'] ?? 'direct' ) );
     $status_code = sanitize_text_field( (string) ( $data['status_code'] ?? 'confirmed' ) );
@@ -1589,51 +1616,66 @@ function lgf_calendar_view_create_wp_sync_booking( $data ) {
     $source_created_at = ( '' !== $contacted_date ? $contacted_date : current_time( 'mysql' ) );
 
     $external_booking_id = (int) $wpdb->get_var( "SELECT COALESCE(MAX(external_booking_id), 0) + 1 FROM {$bookings_table}" );
-    $external_booking_room_id = (int) $wpdb->get_var( "SELECT COALESCE(MAX(external_booking_room_id), 0) + 1 FROM {$bookings_table}" );
+    $next_booking_room_id = (int) $wpdb->get_var( "SELECT COALESCE(MAX(external_booking_room_id), 0) + 1 FROM {$bookings_table}" );
 
-    $room_rate_nightly = lgf_calendar_view_distribute_amounts( $room_rate_amount, $nights );
-    $extras_nightly = lgf_calendar_view_distribute_amounts( $extras_amount, $nights );
-    $tax_nightly = lgf_calendar_view_distribute_amounts( $tourist_tax_total, $nights );
+    foreach ( $room_lines as $line ) {
+        $availability = lgf_calendar_view_check_wp_sync_room_availability( $line['room_sync_id'], $check_in, $check_out );
+        if ( is_wp_error( $availability ) ) {
+            return $availability;
+        }
+    }
 
-    for ( $i = 0; $i < $nights; $i++ ) {
-        $stay_date = gmdate( 'Y-m-d', strtotime( $check_in . ' +' . $i . ' day' ) );
-        $night_total = round( $room_rate_nightly[ $i ] + $extras_nightly[ $i ] + $tax_nightly[ $i ], 2 );
-        $wpdb->insert(
-            $bookings_table,
-            [
-                'external_booking_id' => $external_booking_id,
-                'external_booking_room_id' => $external_booking_room_id,
-                'external_room_id' => (int) $room['external_room_id'],
-                'room_sync_id' => (int) $room['id'],
-                'status_code' => $status_code,
-                'check_in' => $check_in,
-                'check_out' => $check_out,
-                'stay_date' => $stay_date,
-                'guest_count' => $guest_count,
-                'adults' => $adults,
-                'children' => $children,
-                'babies' => $babies,
-                'total_amount' => $night_total,
-                'room_amount' => $room_rate_nightly[ $i ],
-                'extras_amount' => $extras_nightly[ $i ] > 0 ? $extras_nightly[ $i ] : null,
-                'tourist_tax_amount' => $tax_nightly[ $i ],
-                'room_count' => 1,
-                'source_channel' => $source_channel,
-                'source_booking_id' => '',
-                'channel_label' => lgf_calendar_view_get_booking_channel_options()[ $source_channel ] ?? $source_channel,
-                'guest_name' => $guest_name,
-                'phone' => $phone,
-                'import_notes' => $import_notes,
-                'invoice_ninja_client_id' => '',
-                'invoice_ninja_invoice_id' => '',
-                'source_created_at' => $source_created_at,
-            ],
-            [ '%d','%d','%d','%d','%s','%s','%s','%s','%d','%d','%d','%d','%f','%f','%f','%d','%s','%s','%s','%s','%s','%s','%s','%s','%s' ]
-        );
+    foreach ( $room_lines as $line ) {
+        $room = $wpdb->get_row( $wpdb->prepare( "SELECT id, external_room_id, room_code, room_name FROM {$rooms_table} WHERE id = %d LIMIT 1", $line['room_sync_id'] ), ARRAY_A );
+        if ( ! $room ) {
+            return new WP_Error( 'invalid_room', __( 'Please select a valid room.', 'lgf-calendar-view' ) );
+        }
+
+        $external_booking_room_id = $next_booking_room_id++;
+        $room_rate_nightly = lgf_calendar_view_distribute_amounts( $line['room_rate_amount'], $nights );
+        $extras_nightly = lgf_calendar_view_distribute_amounts( $line['extras_amount'], $nights );
+        $tax_nightly = lgf_calendar_view_distribute_amounts( $line['tourist_tax_total'], $nights );
+
+        for ( $i = 0; $i < $nights; $i++ ) {
+            $stay_date = gmdate( 'Y-m-d', strtotime( $check_in . ' +' . $i . ' day' ) );
+            $night_total = round( $room_rate_nightly[ $i ] + $extras_nightly[ $i ] + $tax_nightly[ $i ], 2 );
+            $wpdb->insert(
+                $bookings_table,
+                [
+                    'external_booking_id' => $external_booking_id,
+                    'external_booking_room_id' => $external_booking_room_id,
+                    'external_room_id' => (int) $room['external_room_id'],
+                    'room_sync_id' => (int) $room['id'],
+                    'status_code' => $status_code,
+                    'check_in' => $check_in,
+                    'check_out' => $check_out,
+                    'stay_date' => $stay_date,
+                    'guest_count' => $line['guest_count'],
+                    'adults' => $line['adults'],
+                    'children' => $line['children'],
+                    'babies' => $line['babies'],
+                    'total_amount' => $night_total,
+                    'room_amount' => $room_rate_nightly[ $i ],
+                    'extras_amount' => $extras_nightly[ $i ] > 0 ? $extras_nightly[ $i ] : null,
+                    'tourist_tax_amount' => $tax_nightly[ $i ],
+                    'room_count' => count( $room_lines ),
+                    'source_channel' => $source_channel,
+                    'source_booking_id' => '',
+                    'channel_label' => lgf_calendar_view_get_booking_channel_options()[ $source_channel ] ?? $source_channel,
+                    'guest_name' => $guest_name,
+                    'phone' => $phone,
+                    'import_notes' => $import_notes,
+                    'invoice_ninja_client_id' => '',
+                    'invoice_ninja_invoice_id' => '',
+                    'source_created_at' => $source_created_at,
+                ],
+                [ '%d','%d','%d','%d','%s','%s','%s','%s','%d','%d','%d','%d','%f','%f','%f','%d','%s','%s','%s','%s','%s','%s','%s','%s','%s' ]
+            );
+        }
     }
 
     lgf_calendar_view_clear_calendar_cache();
-    return [ 'booking_id' => $external_booking_id, 'booking_room_id' => $external_booking_room_id ];
+    return [ 'booking_id' => $external_booking_id, 'booking_room_id' => $next_booking_room_id - 1 ];
 }
 
 add_action( 'rest_api_init', function() {
