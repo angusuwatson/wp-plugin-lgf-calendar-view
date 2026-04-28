@@ -107,11 +107,15 @@ function lgf_calendar_view_install_tables() {
         status_code varchar(50) NOT NULL,
         check_in date NOT NULL,
         check_out date NOT NULL,
+        stay_date date NOT NULL,
+        guest_count int(11) NOT NULL DEFAULT 0,
         adults int(11) NOT NULL DEFAULT 0,
         children int(11) NOT NULL DEFAULT 0,
+        babies int(11) NOT NULL DEFAULT 0,
         total_amount decimal(10,2) NOT NULL DEFAULT 0.00,
         room_amount decimal(10,2) NOT NULL DEFAULT 0.00,
         extras_amount decimal(10,2) NULL,
+        tourist_tax_amount decimal(10,2) NULL,
         room_count int(11) NOT NULL DEFAULT 1,
         source_channel varchar(50) NOT NULL,
         source_booking_id varchar(191) NULL,
@@ -124,10 +128,11 @@ function lgf_calendar_view_install_tables() {
         source_created_at datetime NULL,
         synced_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY  (id),
-        UNIQUE KEY external_booking_room_id (external_booking_room_id),
+        UNIQUE KEY external_booking_room_night (external_booking_room_id, stay_date),
         KEY room_sync_id (room_sync_id),
         KEY external_booking_id (external_booking_id),
         KEY external_room_id (external_room_id),
+        KEY stay_date (stay_date),
         KEY booking_dates (check_in, check_out),
         KEY status_code (status_code)
     ) {$charset_collate};";
@@ -664,9 +669,9 @@ function lgf_calendar_view_get_wp_sync_calendar_data( $month, $year ) {
 
     $booking_rows = $wpdb->get_results(
         $wpdb->prepare(
-            "SELECT * FROM {$bookings_table} WHERE check_in < %s AND check_out > %s ORDER BY check_in ASC, external_booking_id ASC, external_booking_room_id ASC",
-            $month_after_last_day_str,
-            $first_day_str
+            "SELECT * FROM {$bookings_table} WHERE stay_date >= %s AND stay_date < %s ORDER BY stay_date ASC, external_booking_id ASC, external_booking_room_id ASC",
+            $first_day_str,
+            $month_after_last_day_str
         ),
         ARRAY_A
     );
@@ -685,15 +690,23 @@ function lgf_calendar_view_get_wp_sync_calendar_data( $month, $year ) {
         $extras_formula = isset( $overlay['extras_formula'] ) ? (string) $overlay['extras_formula'] : '';
         $extras_total = isset( $overlay['extras_total'] ) && '' !== $overlay['extras_total'] ? (float) $overlay['extras_total'] : null;
 
+        $date_str = (string) $row['stay_date'];
+        if ( ! isset( $matrix[ $room_id ][ $date_str ] ) ) {
+            $matrix[ $room_id ][ $date_str ] = [ 'booking' => null, 'is_checkin' => false, 'is_checkout' => false ];
+        }
+
         $booking_payload = (object) [
             'id' => (int) $row['external_booking_id'],
             'status' => (string) $row['status_code'],
             'check_in' => (string) $row['check_in'],
             'check_out' => (string) $row['check_out'],
+            'stay_date' => $date_str,
             'room_id' => $room_id,
             'reserved_room_id' => $reserved_room_id,
             'guest_name' => $guest_name,
             'phone' => (string) $row['phone'],
+            'guest_count' => isset( $row['guest_count'] ) ? (int) $row['guest_count'] : 0,
+            'babies' => isset( $row['babies'] ) ? (int) $row['babies'] : 0,
             'adults' => $adults,
             'children' => $children,
             'occupancy_str' => lgf_calendar_view_format_occupancy( $adults, $children ),
@@ -707,34 +720,21 @@ function lgf_calendar_view_get_wp_sync_calendar_data( $month, $year ) {
             'extras_total' => null !== $extras_total ? $extras_total : ( ( isset( $row['extras_amount'] ) && '' !== $row['extras_amount'] && (float) $row['extras_amount'] > 0 ) ? (float) $row['extras_amount'] : null ),
             'booking_note' => isset( $overlay['booking_note'] ) ? (string) $overlay['booking_note'] : '',
             'import_notes' => (string) ( $row['import_notes'] ?? '' ),
-            'tourist_tax_amount'      => isset( $row['tourist_tax_amount'] ) ? (float) $row['tourist_tax_amount'] : 0.0,
-            'reservation_total_amount'=> isset( $row['booking_total_amount'] ) ? (float) $row['booking_total_amount'] : (float) $row['total_amount'],
+            'tourist_tax_amount' => isset( $row['tourist_tax_amount'] ) ? (float) $row['tourist_tax_amount'] : 0.0,
+            'reservation_total_amount' => (float) $row['total_amount'],
             'invoice_ninja_client_id' => (string) $row['invoice_ninja_client_id'],
             'invoice_ninja_invoice_id' => (string) $row['invoice_ninja_invoice_id'],
             'source_booking_id' => (string) $row['source_booking_id'],
         ];
 
-        $check_in = new DateTime( $booking_payload->check_in );
-        $check_out = new DateTime( $booking_payload->check_out );
-
-        for ( $date = clone $check_in; $date < $check_out; $date->modify( '+1 day' ) ) {
-            $date_str = $date->format( 'Y-m-d' );
-            if ( $date_str < $first_day_str || $date_str >= $month_after_last_day_str ) {
-                continue;
-            }
-
-            if ( ! isset( $matrix[ $room_id ][ $date_str ] ) ) {
-                $matrix[ $room_id ][ $date_str ] = [ 'booking' => null, 'is_checkin' => false, 'is_checkout' => false ];
-            }
-
-            $matrix[ $room_id ][ $date_str ]['booking'] = clone $booking_payload;
-            if ( $date_str === $booking_payload->check_in ) {
-                $matrix[ $room_id ][ $date_str ]['is_checkin'] = true;
-            }
+        $matrix[ $room_id ][ $date_str ]['booking'] = $booking_payload;
+        if ( $date_str === $booking_payload->check_in ) {
+            $matrix[ $room_id ][ $date_str ]['is_checkin'] = true;
         }
 
-        $check_out_date_str = $check_out->format( 'Y-m-d' );
-        if ( isset( $matrix[ $room_id ][ $check_out_date_str ] ) || ( $check_out_date_str >= $first_day_str && $check_out_date_str < $month_after_last_day_str ) ) {
+        $last_night_date = gmdate( 'Y-m-d', strtotime( $booking_payload->check_out . ' -1 day' ) );
+        if ( $date_str === $last_night_date ) {
+            $check_out_date_str = (string) $booking_payload->check_out;
             if ( ! isset( $matrix[ $room_id ][ $check_out_date_str ] ) ) {
                 $matrix[ $room_id ][ $check_out_date_str ] = [ 'booking' => null, 'is_checkin' => false, 'is_checkout' => false ];
             }
@@ -859,8 +859,8 @@ function lgf_calendar_view_get_external_calendar_data( $month, $year ) {
 
         $reserved_room_id = (int) $row['booking_room_id'];
         $overlay = lgf_calendar_view_get_booking_overlay( $reserved_room_id );
-        $adults = isset( $overlay['manual_adults'] ) && '' !== $overlay['manual_adults'] ? (int) $overlay['manual_adults'] : (int) $row['adults'];
-        $children = isset( $overlay['manual_children'] ) && '' !== $overlay['manual_children'] ? (int) $overlay['manual_children'] : (int) $row['children'];
+        $adults = isset( $overlay['manual_adults'] ) && '' !== $overlay['manual_adults'] ? (int) $overlay['manual_adults'] : (int) $row['nightly_adults'];
+        $children = isset( $overlay['manual_children'] ) && '' !== $overlay['manual_children'] ? (int) $overlay['manual_children'] : (int) $row['nightly_children'];
         $guest_name = trim( (string) $row['first_name'] . ' ' . (string) $row['last_name'] );
         if ( isset( $overlay['manual_guest_name'] ) && '' !== trim( (string) $overlay['manual_guest_name'] ) ) {
             $guest_name = trim( (string) $overlay['manual_guest_name'] );
@@ -869,7 +869,7 @@ function lgf_calendar_view_get_external_calendar_data( $month, $year ) {
         $extras_formula = isset( $overlay['extras_formula'] ) ? (string) $overlay['extras_formula'] : '';
         $extras_total   = isset( $overlay['extras_total'] ) && '' !== $overlay['extras_total'] ? (float) $overlay['extras_total'] : null;
         $room_count     = max( 1, (int) $row['room_count'] );
-        $room_tarif     = isset( $row['room_rate_amount'] ) ? (float) $row['room_rate_amount'] : (float) $row['total_amount'];
+        $room_tarif     = isset( $row['nightly_room_rate_amount'] ) ? (float) $row['nightly_room_rate_amount'] : (float) $row['room_rate_amount'];
 
         $booking_payload = (object) [
             'id'                      => (int) $row['booking_id'],
@@ -880,8 +880,8 @@ function lgf_calendar_view_get_external_calendar_data( $month, $year ) {
             'reserved_room_id'        => $reserved_room_id,
             'guest_name'              => $guest_name,
             'phone'                   => (string) $row['phone'],
-            'guest_count'             => isset( $row['guest_count'] ) ? (int) $row['guest_count'] : 0,
-            'babies'                  => isset( $row['babies'] ) ? (int) $row['babies'] : 0,
+            'guest_count'             => isset( $row['nightly_guest_count'] ) ? (int) $row['nightly_guest_count'] : ( isset( $row['guest_count'] ) ? (int) $row['guest_count'] : 0 ),
+            'babies'                  => isset( $row['nightly_babies'] ) ? (int) $row['nightly_babies'] : ( isset( $row['babies'] ) ? (int) $row['babies'] : 0 ),
             'adults'                  => $adults,
             'children'                => $children,
             'occupancy_str'           => lgf_calendar_view_format_occupancy( $adults, $children ),
@@ -892,7 +892,7 @@ function lgf_calendar_view_get_external_calendar_data( $month, $year ) {
             'tarif'                   => isset( $overlay['manual_tarif'] ) && '' !== $overlay['manual_tarif'] ? (float) $overlay['manual_tarif'] : $room_tarif,
             'commission'              => isset( $overlay['manual_commission'] ) && '' !== $overlay['manual_commission'] ? (float) $overlay['manual_commission'] : '',
             'extras_formula'          => $extras_formula,
-            'extras_total'            => null !== $extras_total ? $extras_total : ( ( isset( $row['extras_amount'] ) && '' !== $row['extras_amount'] && (float) $row['extras_amount'] > 0 ) ? (float) $row['extras_amount'] : null ),
+            'extras_total'            => null !== $extras_total ? $extras_total : ( ( isset( $row['nightly_extras_amount'] ) && '' !== $row['nightly_extras_amount'] && (float) $row['nightly_extras_amount'] > 0 ) ? (float) $row['nightly_extras_amount'] : null ),
             'booking_note'            => isset( $overlay['booking_note'] ) ? (string) $overlay['booking_note'] : '',
             'import_notes'            => (string) ( $row['internal_notes'] ?? '' ),
             'invoice_ninja_client_id' => (string) $row['invoice_ninja_client_id'],
@@ -900,27 +900,20 @@ function lgf_calendar_view_get_external_calendar_data( $month, $year ) {
             'source_booking_id'       => (string) $row['source_booking_id'],
         ];
 
-        $check_in = new DateTime( $booking_payload->check_in );
-        $check_out = new DateTime( $booking_payload->check_out );
-
-        for ( $date = clone $check_in; $date < $check_out; $date->modify( '+1 day' ) ) {
-            $date_str = $date->format( 'Y-m-d' );
-            if ( $date_str < $first_day_str || $date_str >= $month_after_last_day_str ) {
-                continue;
-            }
-
-            if ( ! isset( $matrix[ $room_id ][ $date_str ] ) ) {
-                $matrix[ $room_id ][ $date_str ] = [ 'booking' => null, 'is_checkin' => false, 'is_checkout' => false ];
-            }
-
-            $matrix[ $room_id ][ $date_str ]['booking'] = clone $booking_payload;
-            if ( $date_str === $booking_payload->check_in ) {
-                $matrix[ $room_id ][ $date_str ]['is_checkin'] = true;
-            }
+        $date_str = (string) $row['stay_date'];
+        if ( ! isset( $matrix[ $room_id ][ $date_str ] ) ) {
+            $matrix[ $room_id ][ $date_str ] = [ 'booking' => null, 'is_checkin' => false, 'is_checkout' => false ];
         }
 
-        $check_out_date_str = $check_out->format( 'Y-m-d' );
-        if ( isset( $matrix[ $room_id ][ $check_out_date_str ] ) || ( $check_out_date_str >= $first_day_str && $check_out_date_str < $month_after_last_day_str ) ) {
+        $booking_payload->stay_date = $date_str;
+        $matrix[ $room_id ][ $date_str ]['booking'] = clone $booking_payload;
+        if ( $date_str === $booking_payload->check_in ) {
+            $matrix[ $room_id ][ $date_str ]['is_checkin'] = true;
+        }
+
+        $check_out_date_str = (string) $booking_payload->check_out;
+        $last_night_date = gmdate( 'Y-m-d', strtotime( $check_out_date_str . ' -1 day' ) );
+        if ( $date_str === $last_night_date ) {
             if ( ! isset( $matrix[ $room_id ][ $check_out_date_str ] ) ) {
                 $matrix[ $room_id ][ $check_out_date_str ] = [ 'booking' => null, 'is_checkin' => false, 'is_checkout' => false ];
             }

@@ -43,11 +43,15 @@ SELECT
     b.status_code,
     to_char(b.check_in_date, 'YYYY-MM-DD') AS check_in,
     to_char(b.check_out_date, 'YYYY-MM-DD') AS check_out,
-    br.adults,
-    br.children,
-    br.total_amount,
-    br.room_rate_amount AS room_amount,
-    br.extras_amount,
+    to_char(brn.stay_date, 'YYYY-MM-DD') AS stay_date,
+    brn.guest_count,
+    brn.adults,
+    brn.children,
+    brn.babies,
+    brn.total_amount,
+    brn.room_rate_amount AS room_amount,
+    brn.extras_amount,
+    brn.tourist_tax_amount,
     room_counts.room_count,
     b.source_channel,
     COALESCE(b.source_booking_id, '') AS source_booking_id,
@@ -60,6 +64,7 @@ SELECT
     to_char(b.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS') AS source_created_at
 FROM bookings b
 JOIN booking_rooms br ON br.booking_id = b.id
+JOIN booking_room_nights brn ON brn.booking_room_id = br.id
 JOIN guests g ON g.id = b.guest_id
 LEFT JOIN booking_channels bc ON bc.code = b.source_channel
 JOIN booking_statuses bs ON bs.code = b.status_code
@@ -69,7 +74,7 @@ JOIN (
     GROUP BY booking_id
 ) room_counts ON room_counts.booking_id = b.id
 WHERE bs.blocks_availability = true
-ORDER BY b.check_in_date, b.id, br.id;
+ORDER BY brn.stay_date, b.id, br.id;
 SQL
 
 python3 - <<'PY' "$ROOMS_CSV" "$BOOKINGS_CSV" "$IMPORT_SQL"
@@ -98,8 +103,8 @@ with open(out_sql, 'w', encoding='utf-8') as out:
         for row in csv.DictReader(fh):
             out.write(
                 "INSERT INTO wp_lgf_calendar_sync_bookings "
-                "(external_booking_id, external_booking_room_id, external_room_id, status_code, check_in, check_out, adults, children, total_amount, room_amount, extras_amount, room_count, source_channel, source_booking_id, channel_label, guest_name, phone, import_notes, invoice_ninja_client_id, invoice_ninja_invoice_id, source_created_at) VALUES "
-                f"({sql_value(row['external_booking_id'])}, {sql_value(row['external_booking_room_id'])}, {sql_value(row['external_room_id'])}, {sql_value(row['status_code'])}, {sql_value(row['check_in'])}, {sql_value(row['check_out'])}, {sql_value(row['adults'])}, {sql_value(row['children'])}, {sql_value(row['total_amount'])}, {sql_value(row['room_amount'])}, {sql_value(row['extras_amount'])}, {sql_value(row['room_count'])}, {sql_value(row['source_channel'])}, {sql_value(row['source_booking_id'])}, {sql_value(row['channel_label'])}, {sql_value(row['guest_name'])}, {sql_value(row['phone'])}, {sql_value(row['import_notes'])}, {sql_value(row['invoice_ninja_client_id'])}, {sql_value(row['invoice_ninja_invoice_id'])}, {sql_value(row['source_created_at'])});\n"
+                "(external_booking_id, external_booking_room_id, external_room_id, status_code, check_in, check_out, stay_date, guest_count, adults, children, babies, total_amount, room_amount, extras_amount, tourist_tax_amount, room_count, source_channel, source_booking_id, channel_label, guest_name, phone, import_notes, invoice_ninja_client_id, invoice_ninja_invoice_id, source_created_at) VALUES "
+                f"({sql_value(row['external_booking_id'])}, {sql_value(row['external_booking_room_id'])}, {sql_value(row['external_room_id'])}, {sql_value(row['status_code'])}, {sql_value(row['check_in'])}, {sql_value(row['check_out'])}, {sql_value(row['stay_date'])}, {sql_value(row['guest_count'])}, {sql_value(row['adults'])}, {sql_value(row['children'])}, {sql_value(row['babies'])}, {sql_value(row['total_amount'])}, {sql_value(row['room_amount'])}, {sql_value(row['extras_amount'])}, {sql_value(row['tourist_tax_amount'])}, {sql_value(row['room_count'])}, {sql_value(row['source_channel'])}, {sql_value(row['source_booking_id'])}, {sql_value(row['channel_label'])}, {sql_value(row['guest_name'])}, {sql_value(row['phone'])}, {sql_value(row['import_notes'])}, {sql_value(row['invoice_ninja_client_id'])}, {sql_value(row['invoice_ninja_invoice_id'])}, {sql_value(row['source_created_at'])});\n"
             )
 
     out.write("UPDATE wp_lgf_calendar_sync_bookings b JOIN wp_lgf_calendar_sync_rooms r ON r.external_room_id = b.external_room_id SET b.room_sync_id = r.id;\n")
