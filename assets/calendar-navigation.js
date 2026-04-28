@@ -116,7 +116,7 @@
                         if (response && typeof response.extras_formula !== 'undefined') {
                             $input.val(response.extras_formula || '');
                         }
-                        $editor.find('.calendar-extras-display').text(response && response.extras_total !== null ? Number(response.extras_total).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €' : '');
+                        $editor.find('.calendar-extras-display').text(response && response.extras_total !== null && Number(response.extras_total) > 0 ? Number(response.extras_total).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €' : '');
                         $editor.removeClass('is-editing');
                     }
                 },

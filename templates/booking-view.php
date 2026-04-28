@@ -99,7 +99,7 @@ $calendar_base_url = $calendar_base_url ?? '';
                                         </div>
                                     <?php elseif ( $booking && 'extras-row' === $row['class'] ) : ?>
                                         <div class="calendar-extras-editor">
-                                            <span class="calendar-extras-display"><?php echo null !== $booking->extras_total && '' !== $booking->extras_total ? esc_html( number_format( (float) $booking->extras_total, 2, ',', ' ' ) . ' €' ) : ''; ?></span>
+                                            <span class="calendar-extras-display"><?php echo null !== $booking->extras_total && '' !== $booking->extras_total && (float) $booking->extras_total > 0 ? esc_html( number_format( (float) $booking->extras_total, 2, ',', ' ' ) . ' €' ) : ''; ?></span>
                                             <input type="text" class="calendar-booking-input calendar-extras-input" data-field="extras_formula" data-booking-id="<?php echo esc_attr( $booking->id ); ?>" data-room-id="<?php echo esc_attr( $booking->room_id ); ?>" data-reserved-room-id="<?php echo esc_attr( $booking->reserved_room_id ); ?>" value="<?php echo esc_attr( $booking->extras_formula ?? '' ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Extras formula for room %1$s on %2$s', 'lgf-calendar-view' ), $room->title, $date_str ) ); ?>" />
                                         </div>
                                     <?php elseif ( $booking && 'tarif-row' === $row['class'] ) : ?>
