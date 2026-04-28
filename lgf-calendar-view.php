@@ -1193,6 +1193,7 @@ function lgf_calendar_view_register_admin_menu() {
     }
 
     add_menu_page( __( 'LGF Calendar View', 'lgf-calendar-view' ), __( 'LGF Calendar', 'lgf-calendar-view' ), 'manage_options', 'lgf-calendar-view', 'lgf_calendar_view_render_admin_page', 'dashicons-calendar-alt', 58 );
+    add_submenu_page( 'lgf-calendar-view', __( 'Add Booking', 'lgf-calendar-view' ), __( 'Add Booking', 'lgf-calendar-view' ), 'manage_options', 'lgf-calendar-add-booking', 'lgf_calendar_view_render_add_booking_page' );
     add_submenu_page( 'lgf-calendar-view', __( 'Invoice Ninja Settings', 'lgf-calendar-view' ), __( 'Settings', 'lgf-calendar-view' ), 'manage_options', 'lgf-calendar-settings', 'lgf_calendar_view_render_settings_page' );
 }
 
@@ -1207,6 +1208,72 @@ function lgf_calendar_view_render_admin_page() {
 
     echo '<div class="wrap">';
     echo lgf_calendar_view_render_calendar( $calendar_data, 'admin' );
+    echo '</div>';
+}
+
+function lgf_calendar_view_render_add_booking_page() {
+    if ( ! lgf_calendar_view_user_can_access() ) {
+        wp_die( esc_html__( 'You do not have permission to access this page.', 'lgf-calendar-view' ) );
+    }
+
+    $error_message = '';
+    $success_message = '';
+
+    if ( isset( $_POST['lgf_add_booking_submit'] ) ) {
+        check_admin_referer( 'lgf_calendar_add_booking', 'lgf_calendar_add_booking_nonce' );
+        $result = lgf_calendar_view_create_wp_sync_booking( wp_unslash( $_POST ) );
+        if ( is_wp_error( $result ) ) {
+            $error_message = $result->get_error_message();
+        } else {
+            $success_message = sprintf( __( 'Booking %d created in local sync data.', 'lgf-calendar-view' ), (int) $result['booking_id'] );
+        }
+    }
+
+    $rooms = lgf_calendar_view_get_sync_room_options();
+    $channels = lgf_calendar_view_get_booking_channel_options();
+    $statuses = lgf_calendar_view_get_booking_status_options();
+
+    echo '<div class="wrap">';
+    echo '<h1>' . esc_html__( 'Add Booking', 'lgf-calendar-view' ) . '</h1>';
+    if ( $error_message ) {
+        echo '<div class="notice notice-error"><p>' . esc_html( $error_message ) . '</p></div>';
+    }
+    if ( $success_message ) {
+        echo '<div class="notice notice-success"><p>' . esc_html( $success_message ) . '</p></div>';
+    }
+    echo '<p>' . esc_html__( 'This first version creates a booking in the local WordPress sync tables. It is intended for quick manual testing.', 'lgf-calendar-view' ) . '</p>';
+    echo '<form method="post">';
+    wp_nonce_field( 'lgf_calendar_add_booking', 'lgf_calendar_add_booking_nonce' );
+    echo '<table class="form-table">';
+    echo '<tr><th><label for="guest_name">' . esc_html__( 'Guest name', 'lgf-calendar-view' ) . '</label></th><td><input required type="text" name="guest_name" id="guest_name" class="regular-text" /></td></tr>';
+    echo '<tr><th><label for="phone">' . esc_html__( 'Phone', 'lgf-calendar-view' ) . '</label></th><td><input type="text" name="phone" id="phone" class="regular-text" /></td></tr>';
+    echo '<tr><th><label for="room_sync_id">' . esc_html__( 'Room', 'lgf-calendar-view' ) . '</label></th><td><select name="room_sync_id" id="room_sync_id" required>';
+    echo '<option value="">' . esc_html__( 'Select a room', 'lgf-calendar-view' ) . '</option>';
+    foreach ( $rooms as $room ) {
+        echo '<option value="' . esc_attr( $room['id'] ) . '">' . esc_html( $room['room_code'] . ' - ' . $room['room_name'] ) . '</option>';
+    }
+    echo '</select></td></tr>';
+    echo '<tr><th><label for="check_in">' . esc_html__( 'Check-in', 'lgf-calendar-view' ) . '</label></th><td><input required type="date" name="check_in" id="check_in" /></td></tr>';
+    echo '<tr><th><label for="check_out">' . esc_html__( 'Check-out', 'lgf-calendar-view' ) . '</label></th><td><input required type="date" name="check_out" id="check_out" /></td></tr>';
+    echo '<tr><th><label for="source_channel">' . esc_html__( 'Channel', 'lgf-calendar-view' ) . '</label></th><td><select name="source_channel" id="source_channel">';
+    foreach ( $channels as $code => $label ) {
+        echo '<option value="' . esc_attr( $code ) . '">' . esc_html( $label ) . '</option>';
+    }
+    echo '</select></td></tr>';
+    echo '<tr><th><label for="status_code">' . esc_html__( 'Status', 'lgf-calendar-view' ) . '</label></th><td><select name="status_code" id="status_code">';
+    foreach ( $statuses as $code => $label ) {
+        echo '<option value="' . esc_attr( $code ) . '"' . selected( $code, 'confirmed', false ) . '>' . esc_html( $label ) . '</option>';
+    }
+    echo '</select></td></tr>';
+    echo '<tr><th><label for="adults">' . esc_html__( 'Adults', 'lgf-calendar-view' ) . '</label></th><td><input type="number" min="0" name="adults" id="adults" value="2" /></td></tr>';
+    echo '<tr><th><label for="children">' . esc_html__( 'Children', 'lgf-calendar-view' ) . '</label></th><td><input type="number" min="0" name="children" id="children" value="0" /></td></tr>';
+    echo '<tr><th><label for="babies">' . esc_html__( 'Babies', 'lgf-calendar-view' ) . '</label></th><td><input type="number" min="0" name="babies" id="babies" value="0" /></td></tr>';
+    echo '<tr><th><label for="room_rate_amount">' . esc_html__( 'Room rate total', 'lgf-calendar-view' ) . '</label></th><td><input type="text" name="room_rate_amount" id="room_rate_amount" value="0.00" /></td></tr>';
+    echo '<tr><th><label for="extras_amount">' . esc_html__( 'Extras total', 'lgf-calendar-view' ) . '</label></th><td><input type="text" name="extras_amount" id="extras_amount" value="0.00" /></td></tr>';
+    echo '<tr><th><label for="import_notes">' . esc_html__( 'Import / internal notes', 'lgf-calendar-view' ) . '</label></th><td><textarea name="import_notes" id="import_notes" rows="4" class="large-text"></textarea></td></tr>';
+    echo '</table>';
+    submit_button( __( 'Create Booking', 'lgf-calendar-view' ), 'primary', 'lgf_add_booking_submit' );
+    echo '</form>';
     echo '</div>';
 }
 
@@ -1319,6 +1386,133 @@ function lgf_calendar_view_shortcode( $atts ) {
 function lgf_calendar_view_clear_calendar_cache() {
     global $wpdb;
     $wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_lgf_calendar_%' OR option_name LIKE '_transient_timeout_lgf_calendar_%'" );
+}
+
+function lgf_calendar_view_get_sync_room_options() {
+    global $wpdb;
+    $table = lgf_calendar_view_sync_rooms_table();
+    return $wpdb->get_results( "SELECT id, external_room_id, room_code, room_name FROM {$table} WHERE active = 1 ORDER BY sort_order ASC, room_name ASC", ARRAY_A );
+}
+
+function lgf_calendar_view_get_booking_status_options() {
+    return [
+        'pending' => 'Pending',
+        'confirmed' => 'Confirmed',
+        'checked_in' => 'Checked in',
+        'checked_out' => 'Checked out',
+        'cancelled' => 'Cancelled',
+        'no_show' => 'No show',
+    ];
+}
+
+function lgf_calendar_view_get_booking_channel_options() {
+    return [
+        'direct' => 'Website',
+        'booking_com' => 'Booking.com',
+        'email' => 'Email',
+        'telephone' => 'Telephone',
+        'motopress' => 'MotoPress',
+    ];
+}
+
+function lgf_calendar_view_distribute_amounts( $total, $count ) {
+    $count = max( 1, (int) $count );
+    $total_cents = (int) round( (float) $total * 100 );
+    $base = intdiv( $total_cents, $count );
+    $remainder = $total_cents % $count;
+    $values = [];
+    for ( $i = 0; $i < $count; $i++ ) {
+        $values[] = ( $base + ( $i < $remainder ? 1 : 0 ) ) / 100;
+    }
+    return $values;
+}
+
+function lgf_calendar_view_create_wp_sync_booking( $data ) {
+    global $wpdb;
+
+    $rooms_table = lgf_calendar_view_sync_rooms_table();
+    $bookings_table = lgf_calendar_view_sync_bookings_table();
+
+    $room_sync_id = absint( $data['room_sync_id'] ?? 0 );
+    $room = $wpdb->get_row( $wpdb->prepare( "SELECT id, external_room_id, room_code, room_name FROM {$rooms_table} WHERE id = %d LIMIT 1", $room_sync_id ), ARRAY_A );
+    if ( ! $room ) {
+        return new WP_Error( 'invalid_room', __( 'Please select a valid room.', 'lgf-calendar-view' ) );
+    }
+
+    $guest_name = trim( (string) ( $data['guest_name'] ?? '' ) );
+    if ( '' === $guest_name ) {
+        return new WP_Error( 'missing_guest_name', __( 'Guest name is required.', 'lgf-calendar-view' ) );
+    }
+
+    $check_in = (string) ( $data['check_in'] ?? '' );
+    $check_out = (string) ( $data['check_out'] ?? '' );
+    if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $check_in ) || ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $check_out ) || $check_out <= $check_in ) {
+        return new WP_Error( 'invalid_dates', __( 'Check-in and check-out dates are invalid.', 'lgf-calendar-view' ) );
+    }
+
+    $adults = max( 0, (int) ( $data['adults'] ?? 0 ) );
+    $children = max( 0, (int) ( $data['children'] ?? 0 ) );
+    $babies = max( 0, (int) ( $data['babies'] ?? 0 ) );
+    $guest_count = $adults + $children + $babies;
+    $nights = max( 1, (int) round( ( strtotime( $check_out ) - strtotime( $check_in ) ) / DAY_IN_SECONDS ) );
+
+    $room_rate_amount = max( 0, (float) lgf_calendar_view_normalize_decimal( $data['room_rate_amount'] ?? 0 ) );
+    $extras_amount = max( 0, (float) lgf_calendar_view_normalize_decimal( $data['extras_amount'] ?? 0 ) );
+    $tourist_tax_total = round( $adults * 0.80 * $nights, 2 );
+    $total_amount = round( $room_rate_amount + $extras_amount + $tourist_tax_total, 2 );
+
+    $source_channel = sanitize_text_field( (string) ( $data['source_channel'] ?? 'direct' ) );
+    $status_code = sanitize_text_field( (string) ( $data['status_code'] ?? 'confirmed' ) );
+    $phone = sanitize_text_field( (string) ( $data['phone'] ?? '' ) );
+    $import_notes = sanitize_textarea_field( (string) ( $data['import_notes'] ?? '' ) );
+    $source_created_at = current_time( 'mysql' );
+
+    $external_booking_id = (int) $wpdb->get_var( "SELECT COALESCE(MAX(external_booking_id), 0) + 1 FROM {$bookings_table}" );
+    $external_booking_room_id = (int) $wpdb->get_var( "SELECT COALESCE(MAX(external_booking_room_id), 0) + 1 FROM {$bookings_table}" );
+
+    $room_rate_nightly = lgf_calendar_view_distribute_amounts( $room_rate_amount, $nights );
+    $extras_nightly = lgf_calendar_view_distribute_amounts( $extras_amount, $nights );
+    $tax_nightly = lgf_calendar_view_distribute_amounts( $tourist_tax_total, $nights );
+
+    for ( $i = 0; $i < $nights; $i++ ) {
+        $stay_date = gmdate( 'Y-m-d', strtotime( $check_in . ' +' . $i . ' day' ) );
+        $night_total = round( $room_rate_nightly[ $i ] + $extras_nightly[ $i ] + $tax_nightly[ $i ], 2 );
+        $wpdb->insert(
+            $bookings_table,
+            [
+                'external_booking_id' => $external_booking_id,
+                'external_booking_room_id' => $external_booking_room_id,
+                'external_room_id' => (int) $room['external_room_id'],
+                'room_sync_id' => (int) $room['id'],
+                'status_code' => $status_code,
+                'check_in' => $check_in,
+                'check_out' => $check_out,
+                'stay_date' => $stay_date,
+                'guest_count' => $guest_count,
+                'adults' => $adults,
+                'children' => $children,
+                'babies' => $babies,
+                'total_amount' => $night_total,
+                'room_amount' => $room_rate_nightly[ $i ],
+                'extras_amount' => $extras_nightly[ $i ] > 0 ? $extras_nightly[ $i ] : null,
+                'tourist_tax_amount' => $tax_nightly[ $i ],
+                'room_count' => 1,
+                'source_channel' => $source_channel,
+                'source_booking_id' => '',
+                'channel_label' => lgf_calendar_view_get_booking_channel_options()[ $source_channel ] ?? $source_channel,
+                'guest_name' => $guest_name,
+                'phone' => $phone,
+                'import_notes' => $import_notes,
+                'invoice_ninja_client_id' => '',
+                'invoice_ninja_invoice_id' => '',
+                'source_created_at' => $source_created_at,
+            ],
+            [ '%d','%d','%d','%d','%s','%s','%s','%s','%d','%d','%d','%d','%f','%f','%f','%d','%s','%s','%s','%s','%s','%s','%s','%s','%s' ]
+        );
+    }
+
+    lgf_calendar_view_clear_calendar_cache();
+    return [ 'booking_id' => $external_booking_id, 'booking_room_id' => $external_booking_room_id ];
 }
 
 add_action( 'rest_api_init', function() {
