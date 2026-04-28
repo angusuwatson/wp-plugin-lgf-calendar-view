@@ -1485,6 +1485,26 @@ function lgf_calendar_view_validate_booking_form_data( $data ) {
     ];
 }
 
+function lgf_calendar_view_check_wp_sync_room_availability( $room_sync_id, $check_in, $check_out ) {
+    global $wpdb;
+
+    $bookings_table = lgf_calendar_view_sync_bookings_table();
+    $conflict_count = (int) $wpdb->get_var(
+        $wpdb->prepare(
+            "SELECT COUNT(*) FROM {$bookings_table} WHERE room_sync_id = %d AND status_code IN ('pending', 'confirmed', 'checked_in') AND check_in < %s AND check_out > %s",
+            $room_sync_id,
+            $check_out,
+            $check_in
+        )
+    );
+
+    if ( $conflict_count > 0 ) {
+        return new WP_Error( 'room_unavailable', __( 'That room already has an overlapping booking for the selected dates.', 'lgf-calendar-view' ) );
+    }
+
+    return true;
+}
+
 function lgf_calendar_view_create_wp_sync_booking( $data ) {
     global $wpdb;
 
@@ -1503,6 +1523,11 @@ function lgf_calendar_view_create_wp_sync_booking( $data ) {
     }
 
     extract( $validated, EXTR_SKIP );
+
+    $availability = lgf_calendar_view_check_wp_sync_room_availability( $room_sync_id, $check_in, $check_out );
+    if ( is_wp_error( $availability ) ) {
+        return $availability;
+    }
 
     $source_channel = sanitize_text_field( (string) ( $data['source_channel'] ?? 'direct' ) );
     $status_code = sanitize_text_field( (string) ( $data['status_code'] ?? 'confirmed' ) );
