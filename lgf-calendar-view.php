@@ -707,6 +707,8 @@ function lgf_calendar_view_get_wp_sync_calendar_data( $month, $year ) {
             'extras_total' => null !== $extras_total ? $extras_total : ( ( isset( $row['extras_amount'] ) && '' !== $row['extras_amount'] && (float) $row['extras_amount'] > 0 ) ? (float) $row['extras_amount'] : null ),
             'booking_note' => isset( $overlay['booking_note'] ) ? (string) $overlay['booking_note'] : '',
             'import_notes' => (string) ( $row['import_notes'] ?? '' ),
+            'tourist_tax_amount'      => isset( $row['tourist_tax_amount'] ) ? (float) $row['tourist_tax_amount'] : 0.0,
+            'reservation_total_amount'=> isset( $row['booking_total_amount'] ) ? (float) $row['booking_total_amount'] : (float) $row['total_amount'],
             'invoice_ninja_client_id' => (string) $row['invoice_ninja_client_id'],
             'invoice_ninja_invoice_id' => (string) $row['invoice_ninja_invoice_id'],
             'source_booking_id' => (string) $row['source_booking_id'],
@@ -804,11 +806,15 @@ function lgf_calendar_view_get_external_calendar_data( $month, $year ) {
             b.status_code,
             b.check_in_date,
             b.check_out_date,
-            b.adults,
-            b.children,
-            b.total_amount,
-            b.room_rate_amount,
-            b.extras_amount,
+            br.guest_count,
+            br.adults,
+            br.children,
+            br.babies,
+            br.total_amount,
+            br.room_rate_amount,
+            br.extras_amount,
+            br.tourist_tax_amount,
+            b.total_amount AS booking_total_amount,
             b.source_channel,
             b.source_booking_id,
             b.internal_notes,
@@ -863,7 +869,7 @@ function lgf_calendar_view_get_external_calendar_data( $month, $year ) {
         $extras_formula = isset( $overlay['extras_formula'] ) ? (string) $overlay['extras_formula'] : '';
         $extras_total   = isset( $overlay['extras_total'] ) && '' !== $overlay['extras_total'] ? (float) $overlay['extras_total'] : null;
         $room_count     = max( 1, (int) $row['room_count'] );
-        $room_tarif     = isset( $row['room_rate_amount'] ) ? (float) $row['room_rate_amount'] : round( (float) $row['total_amount'] / $room_count, 2 );
+        $room_tarif     = isset( $row['room_rate_amount'] ) ? (float) $row['room_rate_amount'] : (float) $row['total_amount'];
 
         $booking_payload = (object) [
             'id'                      => (int) $row['booking_id'],
@@ -874,6 +880,8 @@ function lgf_calendar_view_get_external_calendar_data( $month, $year ) {
             'reserved_room_id'        => $reserved_room_id,
             'guest_name'              => $guest_name,
             'phone'                   => (string) $row['phone'],
+            'guest_count'             => isset( $row['guest_count'] ) ? (int) $row['guest_count'] : 0,
+            'babies'                  => isset( $row['babies'] ) ? (int) $row['babies'] : 0,
             'adults'                  => $adults,
             'children'                => $children,
             'occupancy_str'           => lgf_calendar_view_format_occupancy( $adults, $children ),
