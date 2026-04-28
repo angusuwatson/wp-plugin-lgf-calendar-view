@@ -116,4 +116,4 @@ PY
 docker exec -i "$WP_DB_CONTAINER" mariadb -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DB" < "$IMPORT_SQL"
 
 echo "Synced rooms: $(tail -n +2 "$ROOMS_CSV" | wc -l)"
-echo "Synced booking-room rows: $(tail -n +2 "$BOOKINGS_CSV" | wc -l)"
+echo "Synced booking-room-night rows: $(tail -n +2 "$BOOKINGS_CSV" | wc -l)"
