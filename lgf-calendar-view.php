@@ -1254,15 +1254,23 @@ function lgf_calendar_view_render_add_booking_page() {
                 ],
                 admin_url( 'admin.php' )
             );
-            wp_safe_redirect( $redirect_url );
-            exit;
+            echo '<script>window.location.href=' . wp_json_encode( $redirect_url ) . ';</script>';
+            echo '<p><a href="' . esc_url( $redirect_url ) . '">' . esc_html__( 'Continue to calendar', 'lgf-calendar-view' ) . '</a></p>';
+            return;
         }
     }
 
-    $rooms = lgf_calendar_view_get_sync_room_options( (string) $form_data['check_in'], (string) $form_data['check_out'] );
+    $check_in_value = (string) $form_data['check_in'];
+    $check_out_value = (string) $form_data['check_out'];
+    if ( preg_match( '/^\d{4}-\d{2}-\d{2}$/', $check_in_value ) && ( '' === $check_out_value || $check_out_value <= $check_in_value ) ) {
+        $check_out_value = gmdate( 'Y-m-d', strtotime( $check_in_value . ' +1 day' ) );
+        $form_data['check_out'] = $check_out_value;
+    }
+
+    $rooms = lgf_calendar_view_get_sync_room_options( $check_in_value, $check_out_value );
     $channels = lgf_calendar_view_get_booking_channel_options();
     $statuses = lgf_calendar_view_get_booking_status_options();
-    $dates_ready = preg_match( '/^\d{4}-\d{2}-\d{2}$/', (string) $form_data['check_in'] ) && preg_match( '/^\d{4}-\d{2}-\d{2}$/', (string) $form_data['check_out'] ) && (string) $form_data['check_out'] > (string) $form_data['check_in'];
+    $dates_ready = preg_match( '/^\d{4}-\d{2}-\d{2}$/', $check_in_value ) && preg_match( '/^\d{4}-\d{2}-\d{2}$/', $check_out_value ) && $check_out_value > $check_in_value;
 
     echo '<div class="wrap">';
     echo '<h1>' . esc_html__( 'Add Booking', 'lgf-calendar-view' ) . '</h1>';
@@ -1275,12 +1283,15 @@ function lgf_calendar_view_render_add_booking_page() {
     echo '<table class="form-table">';
     echo '<tr><th><label for="guest_name">' . esc_html__( 'Guest name', 'lgf-calendar-view' ) . '</label></th><td><input required type="text" name="guest_name" id="guest_name" class="regular-text" value="' . esc_attr( (string) $form_data['guest_name'] ) . '" /></td></tr>';
     echo '<tr><th><label for="phone">' . esc_html__( 'Phone', 'lgf-calendar-view' ) . '</label></th><td><input type="text" name="phone" id="phone" class="regular-text" value="' . esc_attr( (string) $form_data['phone'] ) . '" /></td></tr>';
-    echo '<tr><th><label for="check_in">' . esc_html__( 'Check-in', 'lgf-calendar-view' ) . '</label></th><td><input required type="date" name="check_in" id="check_in" value="' . esc_attr( (string) $form_data['check_in'] ) . '" onchange="this.form.submit()" /></td></tr>';
-    echo '<tr><th><label for="check_out">' . esc_html__( 'Check-out', 'lgf-calendar-view' ) . '</label></th><td><input required type="date" name="check_out" id="check_out" value="' . esc_attr( (string) $form_data['check_out'] ) . '" onchange="this.form.submit()" /></td></tr>';
+    echo '<tr><th><label for="check_in">' . esc_html__( 'Check-in', 'lgf-calendar-view' ) . '</label></th><td><input required type="date" name="check_in" id="check_in" value="' . esc_attr( $check_in_value ) . '" data-auto-checkout="1" /></td></tr>';
+    echo '<tr><th><label for="check_out">' . esc_html__( 'Check-out', 'lgf-calendar-view' ) . '</label></th><td><input required type="date" name="check_out" id="check_out" value="' . esc_attr( $check_out_value ) . '" /></td></tr>';
     echo '<tr><th><label for="room_sync_id">' . esc_html__( 'Room', 'lgf-calendar-view' ) . '</label></th><td><select name="room_sync_id" id="room_sync_id" required ' . ( $dates_ready ? '' : 'disabled' ) . '>';
     echo '<option value="">' . esc_html__( $dates_ready ? 'Select an available room' : 'Choose dates first', 'lgf-calendar-view' ) . '</option>';
+    $room_numbers = [ 'ANE' => 1, 'DEL' => 2, 'LYS' => 3, 'TOU' => 4, 'TUL' => 5, 'COQ' => 0 ];
     foreach ( $rooms as $room ) {
-        echo '<option value="' . esc_attr( $room['id'] ) . '"' . selected( (string) $form_data['room_sync_id'], (string) $room['id'], false ) . '>' . esc_html( $room['room_code'] . ' - ' . $room['room_name'] ) . '</option>';
+        $room_code = (string) $room['room_code'];
+        $room_number = $room_numbers[ $room_code ] ?? '';
+        echo '<option value="' . esc_attr( $room['id'] ) . '"' . selected( (string) $form_data['room_sync_id'], (string) $room['id'], false ) . '>' . esc_html( $room_number . ' - ' . $room['room_name'] ) . '</option>';
     }
     echo '</select>';
     if ( $dates_ready && empty( $rooms ) ) {
@@ -1307,6 +1318,7 @@ function lgf_calendar_view_render_add_booking_page() {
     echo '</table>';
     submit_button( __( 'Create Booking', 'lgf-calendar-view' ), 'primary', 'lgf_add_booking_submit' );
     echo '</form>';
+    echo '<script>(function(){var form=document.querySelector("form");if(!form)return;var checkIn=document.getElementById("check_in");var checkOut=document.getElementById("check_out");if(checkIn&&checkOut){checkIn.addEventListener("change",function(){if(!checkIn.value)return;var inDate=new Date(checkIn.value+"T00:00:00Z");var outDate=checkOut.value?new Date(checkOut.value+"T00:00:00Z"):null;if(!outDate||outDate<=inDate){inDate.setUTCDate(inDate.getUTCDate()+1);checkOut.value=inDate.toISOString().slice(0,10);} form.submit();});checkOut.addEventListener("change",function(){form.submit();});}}</script>';
     echo '</div>';
 }
 
