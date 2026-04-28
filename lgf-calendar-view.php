@@ -9,8 +9,8 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'LGF_CALENDAR_VIEW_VERSION', '1.5' );
-define( 'LGF_CALENDAR_VIEW_DB_VERSION', '3' );
+define( 'LGF_CALENDAR_VIEW_VERSION', '1.6' );
+define( 'LGF_CALENDAR_VIEW_DB_VERSION', '4' );
 
 add_action( 'plugins_loaded', 'lgf_calendar_view_check_dependency' );
 function lgf_calendar_view_check_dependency() {
@@ -814,6 +814,15 @@ function lgf_calendar_view_get_external_calendar_data( $month, $year ) {
             br.room_rate_amount,
             br.extras_amount,
             br.tourist_tax_amount,
+            brn.stay_date,
+            brn.guest_count AS nightly_guest_count,
+            brn.adults AS nightly_adults,
+            brn.children AS nightly_children,
+            brn.babies AS nightly_babies,
+            brn.total_amount AS nightly_total_amount,
+            brn.room_rate_amount AS nightly_room_rate_amount,
+            brn.extras_amount AS nightly_extras_amount,
+            brn.tourist_tax_amount AS nightly_tourist_tax_amount,
             b.total_amount AS booking_total_amount,
             b.source_channel,
             b.source_booking_id,
@@ -831,6 +840,7 @@ function lgf_calendar_view_get_external_calendar_data( $month, $year ) {
             room_counts.room_count
         FROM bookings b
         JOIN booking_rooms br ON br.booking_id = b.id
+        JOIN booking_room_nights brn ON brn.booking_room_id = br.id
         JOIN rooms r ON r.id = br.room_id
         JOIN guests g ON g.id = b.guest_id
         LEFT JOIN booking_channels bc ON bc.code = b.source_channel
@@ -841,9 +851,9 @@ function lgf_calendar_view_get_external_calendar_data( $month, $year ) {
         ) room_counts ON room_counts.booking_id = b.id
         JOIN booking_statuses bs ON bs.code = b.status_code
         WHERE bs.blocks_availability = true
-          AND b.check_in_date < $2::date
-          AND b.check_out_date > $1::date
-        ORDER BY b.check_in_date ASC, b.id ASC, br.id ASC
+          AND brn.stay_date >= $1::date
+          AND brn.stay_date < $2::date
+        ORDER BY brn.stay_date ASC, b.id ASC, br.id ASC
     ";
 
     $bookings_result = pg_query_params( $connection, $bookings_sql, [ $first_day_str, $month_after_last_day_str ] );
@@ -895,6 +905,8 @@ function lgf_calendar_view_get_external_calendar_data( $month, $year ) {
             'extras_total'            => null !== $extras_total ? $extras_total : ( ( isset( $row['nightly_extras_amount'] ) && '' !== $row['nightly_extras_amount'] && (float) $row['nightly_extras_amount'] > 0 ) ? (float) $row['nightly_extras_amount'] : null ),
             'booking_note'            => isset( $overlay['booking_note'] ) ? (string) $overlay['booking_note'] : '',
             'import_notes'            => (string) ( $row['internal_notes'] ?? '' ),
+            'tourist_tax_amount'      => isset( $row['nightly_tourist_tax_amount'] ) ? (float) $row['nightly_tourist_tax_amount'] : ( isset( $row['tourist_tax_amount'] ) ? (float) $row['tourist_tax_amount'] : 0.0 ),
+            'reservation_total_amount'=> isset( $row['booking_total_amount'] ) ? (float) $row['booking_total_amount'] : (float) $row['total_amount'],
             'invoice_ninja_client_id' => (string) $row['invoice_ninja_client_id'],
             'invoice_ninja_invoice_id'=> (string) $row['invoice_ninja_invoice_id'],
             'source_booking_id'       => (string) $row['source_booking_id'],
